@@ -1,0 +1,6 @@
+{
+  "name": "Fiffy's Match Making",
+  "description": "Premier global matchmaking service connecting verified African singles everywhere in the world across the continent and diaspora, with authentic profiles, meaningful cultural chemistry, and an executive administration console.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

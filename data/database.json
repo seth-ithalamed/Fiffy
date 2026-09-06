@@ -1,0 +1,1154 @@
+{
+  "users": [
+    {
+      "id": "me",
+      "name": "Lerato Khumalo",
+      "age": 26,
+      "gender": "woman",
+      "orientation": "straight",
+      "showMe": "men",
+      "email": "lerato.khumalo@fiffys.com",
+      "phone": "+27 82 459 9021",
+      "job": "Brand Strategist & Art Enthusiast",
+      "company": "Khumalo Media Group",
+      "education": "University of the Witwatersrand",
+      "location": "Rosebank, Johannesburg",
+      "city": "Johannesburg",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "countryFlag": "🇿🇦",
+      "preferredCountries": [
+        "any"
+      ],
+      "distanceKm": 0,
+      "bio": "Passionate about African contemporary art, sunset braais in Maboneng, and finding someone who knows how to keep a real conversation alive.",
+      "photos": [
+        "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Afrobeats",
+        "Contemporary Art",
+        "Specialty Coffee",
+        "Wine Tasting",
+        "Trail Walking",
+        "Travel in Africa"
+      ],
+      "prompts": [
+        {
+          "id": "p1",
+          "question": "Dating me is like...",
+          "answer": "A curated road trip along the Garden Route with endless music and hearty laughs."
+        },
+        {
+          "id": "p2",
+          "question": "Two truths and a lie...",
+          "answer": "I speak 4 languages, I once climbed Mount Kilimanjaro on impulse, and I cannot cook jollof rice."
+        },
+        {
+          "id": "p3",
+          "question": "The best way to win me over is...",
+          "answer": "Being genuine, smelling amazing, and knowing how to make me laugh until my stomach hurts."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "Just now",
+      "height": "5'8\" (173 cm)",
+      "starSign": "Leo",
+      "datingGoal": "Long-term relationship",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "Burna Boy, Tyla, Kabza De Small & Sampa The Great",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "password": "password123",
+      "role": "user",
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-1",
+      "name": "Amara Okafor",
+      "age": 26,
+      "gender": "woman",
+      "orientation": "straight",
+      "showMe": "men",
+      "job": "Fintech Product Lead & Podcaster",
+      "company": "PayFlow Africa",
+      "education": "University of Lagos",
+      "location": "Victoria Island, Lagos",
+      "city": "Lagos",
+      "country": "Nigeria",
+      "countryCode": "NG",
+      "countryFlag": "🇳🇬",
+      "preferredCountries": [
+        "Nigeria",
+        "South Africa",
+        "Ghana",
+        "United Kingdom (Diaspora)"
+      ],
+      "distanceKm": 4200,
+      "bio": "Tech by day, culinary explorer by weekend. Let’s argue over who makes the best jollof and catch live jazz at Bogobiri.",
+      "photos": [
+        "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Fintech",
+        "Afrobeats",
+        "Podcasting",
+        "Seafood Grills",
+        "Pan-African Tech",
+        "Fashion"
+      ],
+      "prompts": [
+        {
+          "id": "p-m1",
+          "question": "My simple pleasures...",
+          "answer": "Fresh coconut water at Landmark Beach and unreleased Asake demos on repeat."
+        },
+        {
+          "id": "p-m2",
+          "question": "Dating me is like...",
+          "answer": "Having a built-in hype woman who will also critique your pitch deck."
+        },
+        {
+          "id": "p-m3",
+          "question": "A boundary of mine is...",
+          "answer": "Clear communication and mutual ambition. Ghosting is not an option."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "Active now",
+      "height": "5'7\" (170 cm)",
+      "starSign": "Taurus",
+      "datingGoal": "Long-term relationship",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "Wizkid, Tems & Rema",
+      "likedMe": true,
+      "email": "amara.okafor@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-2",
+      "name": "Thabo Ndlovu",
+      "age": 29,
+      "gender": "man",
+      "orientation": "straight",
+      "showMe": "women",
+      "job": "Renewable Energy Engineer & Cyclist",
+      "company": "SolAfrica Dynamics",
+      "education": "University of Cape Town",
+      "location": "Sandton, Johannesburg",
+      "city": "Johannesburg",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "countryFlag": "🇿🇦",
+      "preferredCountries": [
+        "South Africa",
+        "Zimbabwe",
+        "Kenya",
+        "any"
+      ],
+      "distanceKm": 12,
+      "bio": "Building solar microgrids across the Southern hemisphere. Passionate about sunrise trail cycling, Sunday braais, and vintage vinyl.",
+      "photos": [
+        "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Solar Energy",
+        "Trail Cycling",
+        "Braai Master",
+        "Amapiano",
+        "Hiking Drakensberg",
+        "Espresso"
+      ],
+      "prompts": [
+        {
+          "id": "p-j1",
+          "question": "I get overly competitive about...",
+          "answer": "Who braais the tenderest lamb chops and wins family board game nights."
+        },
+        {
+          "id": "p-j2",
+          "question": "The most spontaneous thing I have done...",
+          "answer": "Drove through Botswana all the way to Chobe National Park on 4 hours notice."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "12m ago",
+      "height": "6'2\" (188 cm)",
+      "starSign": "Capricorn",
+      "datingGoal": "Marriage",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "Kelvin Momo, Sun-El Musician & Ami Faku",
+      "superLikedMe": true,
+      "email": "thabo.ndlovu@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-3",
+      "name": "Wanjiku Mwangi",
+      "age": 27,
+      "gender": "woman",
+      "orientation": "straight",
+      "showMe": "men",
+      "job": "Wildlife Conservationist & Photographer",
+      "company": "Kenya Wildlife Trust",
+      "education": "University of Nairobi",
+      "location": "Westlands, Nairobi",
+      "city": "Nairobi",
+      "country": "Kenya",
+      "countryCode": "KE",
+      "countryFlag": "🇰🇪",
+      "preferredCountries": [
+        "Kenya",
+        "Rwanda",
+        "South Africa",
+        "any"
+      ],
+      "distanceKm": 2900,
+      "bio": "Tracking big cats in the Maasai Mara and advocating for community conservancies. Looking for someone adventurous with kind eyes.",
+      "photos": [
+        "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1531746790731-6c087fecd65a?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Wildlife Safari",
+        "Nature Photography",
+        "Kenyan Coffee",
+        "Camping",
+        "Benga Music",
+        "Bird Watching"
+      ],
+      "prompts": [
+        {
+          "id": "p-w1",
+          "question": "Together, we could...",
+          "answer": "Camp under the Serengeti stars and wake up before dawn to watch the hot air balloons rise."
+        },
+        {
+          "id": "p-w2",
+          "question": "The best way to win me over is...",
+          "answer": "Brewing single-origin Kenyan coffee and genuinely caring about wildlife."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "Active now",
+      "height": "5'9\" (175 cm)",
+      "starSign": "Sagittarius",
+      "datingGoal": "Long-term relationship",
+      "drinking": "Rarely",
+      "smoking": "Never",
+      "spotifyTopArtist": "Sauti Sol, Bien & Bensoul",
+      "likedMe": true,
+      "email": "wanjiku.mwangi@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-4",
+      "name": "Kwame Mensah",
+      "age": 28,
+      "gender": "man",
+      "orientation": "straight",
+      "showMe": "women",
+      "job": "Architect & Heritage Restorer",
+      "company": "Studio Akan Accra",
+      "education": "KNUST Kumasi",
+      "location": "Airport Residential, Accra",
+      "city": "Accra",
+      "country": "Ghana",
+      "countryCode": "GH",
+      "countryFlag": "🇬🇭",
+      "preferredCountries": [
+        "Ghana",
+        "Nigeria",
+        "United Kingdom (Diaspora)",
+        "South Africa"
+      ],
+      "distanceKm": 4600,
+      "bio": "Designing modern sustainable homes inspired by traditional West African earthen architecture. Weekend surfer at Busua.",
+      "photos": [
+        "https://images.unsplash.com/photo-1507152832244-10d45c7eda57?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1563237023-b1e970526dcb?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Architecture",
+        "Surfing",
+        "Highlife Music",
+        "Plantain & Kelewele",
+        "Art Galleries",
+        "Sailing"
+      ],
+      "prompts": [
+        {
+          "id": "p-k1",
+          "question": "My most controversial opinion...",
+          "answer": "Ghanaian jollof has the smokiness that cannot be matched anywhere else on the continent!"
+        },
+        {
+          "id": "p-k2",
+          "question": "Dating me is like...",
+          "answer": "Touring historical castles and catching golden hour at Labadi beach bar."
+        }
+      ],
+      "verified": true,
+      "online": false,
+      "lastActive": "1h ago",
+      "height": "6'1\" (185 cm)",
+      "starSign": "Virgo",
+      "datingGoal": "Marriage",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "King Promise, Black Sherif & Ebo Taylor",
+      "likedMe": true,
+      "email": "kwame.mensah@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-5",
+      "name": "Zola Mthembu",
+      "age": 25,
+      "gender": "woman",
+      "orientation": "straight",
+      "showMe": "men",
+      "job": "Marine Scientist & Freediver",
+      "company": "Oceanic Research Cape",
+      "education": "Stellenbosch University",
+      "location": "Camps Bay, Cape Town",
+      "city": "Cape Town",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "countryFlag": "🇿🇦",
+      "preferredCountries": [
+        "South Africa",
+        "any"
+      ],
+      "distanceKm": 1400,
+      "bio": "Freediving with kelp forests, researching ocean biodiversity, and enjoying chilled Pinotage on Kloof Street balconies.",
+      "photos": [
+        "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Freediving",
+        "Marine Biology",
+        "Cape Vineyards",
+        "Sunset Picnics",
+        "Afro-house",
+        "Yoga"
+      ],
+      "prompts": [
+        {
+          "id": "p-z1",
+          "question": "My simple pleasures...",
+          "answer": "The smell of ocean breeze at tidal pools before anyone else is awake."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "5m ago",
+      "height": "5'7\" (170 cm)",
+      "starSign": "Pisces",
+      "datingGoal": "Long-term relationship",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "Black Coffee, Zakes Bantwini & Sun-El",
+      "email": "zola.mthembu@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-6",
+      "name": "Kofi Asante",
+      "age": 30,
+      "gender": "man",
+      "orientation": "straight",
+      "showMe": "women",
+      "job": "Diaspora Private Equity Director",
+      "company": "Meridian Capital Partners",
+      "education": "London School of Economics",
+      "location": "Canary Wharf, London",
+      "city": "London",
+      "country": "United Kingdom (Diaspora)",
+      "countryCode": "GB",
+      "countryFlag": "🇬🇧",
+      "preferredCountries": [
+        "Ghana",
+        "Nigeria",
+        "South Africa",
+        "Kenya",
+        "United Kingdom (Diaspora)"
+      ],
+      "distanceKm": 9000,
+      "bio": "Born in London with strong roots in Kumasi. Mobilizing capital for African founders and returning home every December. Looking for a partner to build a life together.",
+      "photos": [
+        "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Venture Capital",
+        "Afrobeats London",
+        "Squash",
+        "Fine Dining",
+        "Ghanaian Politics",
+        "Diaspora Investment"
+      ],
+      "prompts": [
+        {
+          "id": "p-as1",
+          "question": "Teach me something about...",
+          "answer": "What makes your city unique and how your family celebrates the holidays."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "30m ago",
+      "height": "6'3\" (190 cm)",
+      "starSign": "Scorpio",
+      "datingGoal": "Marriage",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "Stormzy, Burna Boy & Sarkodie",
+      "email": "kofi.asante@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-7",
+      "name": "Amina Diallo",
+      "age": 27,
+      "gender": "woman",
+      "orientation": "straight",
+      "showMe": "men",
+      "job": "Fashion Creative & Gallery Curator",
+      "company": "Atelier Teranga",
+      "education": "Cheikh Anta Diop University",
+      "location": "Almadies, Dakar",
+      "city": "Dakar",
+      "country": "Senegal",
+      "countryCode": "SN",
+      "countryFlag": "🇸🇳",
+      "preferredCountries": [
+        "Senegal",
+        "Ghana",
+        "South Africa",
+        "any"
+      ],
+      "distanceKm": 6500,
+      "bio": "Curating contemporary African textile art and celebrating Senegalese Teranga hospitality. Let’s talk literature over fresh thiéboudienne.",
+      "photos": [
+        "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "African Fashion",
+        "Art Biennales",
+        "Thiéboudienne",
+        "French Cinema",
+        "Poetry",
+        "Jazz"
+      ],
+      "prompts": [
+        {
+          "id": "p-ad1",
+          "question": "Dating me is like...",
+          "answer": "Having front row seats to African Fashion Week and never running out of deep topics."
+        }
+      ],
+      "verified": true,
+      "online": false,
+      "lastActive": "3h ago",
+      "height": "5'8\" (173 cm)",
+      "starSign": "Libra",
+      "datingGoal": "Long-term relationship",
+      "drinking": "Never",
+      "smoking": "Never",
+      "spotifyTopArtist": "Youssou N’Dour, Baaba Maal & Fatoumata Diawara",
+      "email": "amina.diallo@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "user-8",
+      "name": "Tendai Moyo",
+      "age": 29,
+      "gender": "man",
+      "orientation": "straight",
+      "showMe": "women",
+      "job": "Fintech Product Architect & Coffee Roaster",
+      "company": "ZimPay Global",
+      "education": "University of Zimbabwe",
+      "location": "Avondale, Harare",
+      "city": "Harare",
+      "country": "Zimbabwe",
+      "countryCode": "ZW",
+      "countryFlag": "🇿🇼",
+      "preferredCountries": [
+        "Zimbabwe",
+        "South Africa",
+        "any"
+      ],
+      "distanceKm": 950,
+      "bio": "Crafting digital payments across COMESA. Weekend coffee roaster and vintage Land Cruiser mechanic. Honest, loyal, and ready for something real.",
+      "photos": [
+        "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Coffee Roasting",
+        "Fintech",
+        "4x4 Overlanding",
+        "Chimurenga Music",
+        "Hiking",
+        "Braai"
+      ],
+      "prompts": [
+        {
+          "id": "p-tm1",
+          "question": "The unwritten rule of first dates...",
+          "answer": "Listen more than you speak and never judge someone by their phone model."
+        }
+      ],
+      "verified": true,
+      "online": true,
+      "lastActive": "Active now",
+      "height": "6'0\" (183 cm)",
+      "starSign": "Aries",
+      "datingGoal": "Marriage",
+      "drinking": "Socially",
+      "smoking": "Never",
+      "spotifyTopArtist": "Oliver Mtukudzi, Thomas Mapfumo & Jah Prayzah",
+      "email": "tendai.moyo@demo.fiffys.com",
+      "password": "password123",
+      "phone": "+27 82 000 0000",
+      "role": "user",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": true,
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "admin-1",
+      "name": "Fiffy Executive Admin",
+      "email": "admin@fiffys.com",
+      "password": "admin2026",
+      "role": "admin",
+      "verified": true,
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "countryFlag": "🇿🇦",
+      "city": "Johannesburg",
+      "isPremium": true,
+      "premiumTier": "elite",
+      "createdAt": "2026-09-04T05:33:17.613Z"
+    },
+    {
+      "id": "usr-1788500358810-i1w1p",
+      "name": "Tendai Moyo",
+      "email": "testdemo@fiffy.com",
+      "password": "demoPassword123",
+      "role": "user",
+      "age": 28,
+      "gender": "man",
+      "orientation": "straight",
+      "showMe": "men",
+      "country": "Zimbabwe",
+      "countryCode": "ZA",
+      "countryFlag": "🇿🇦",
+      "city": "Harare",
+      "location": "Harare, Zimbabwe",
+      "distanceKm": 0,
+      "bio": "Excited to meet genuine people on Fiffy’s Match Making!",
+      "photos": [
+        "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Afrobeats",
+        "Contemporary Art",
+        "Specialty Coffee"
+      ],
+      "prompts": [
+        {
+          "id": "p-new-1",
+          "question": "Dating me is like...",
+          "answer": "Unwinding after a long week with laughter and great food."
+        }
+      ],
+      "job": "Software Architect",
+      "company": "",
+      "education": "Graduate",
+      "datingGoal": "Long-term relationship",
+      "verified": true,
+      "online": true,
+      "lastActive": "Just now",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": false,
+      "createdAt": "2026-09-04T05:39:18.810Z",
+      "token": "usr-1788500358810-i1w1p"
+    }
+  ],
+  "subscriptionPlans": [
+    {
+      "id": "plan-plus",
+      "name": "Fiffy Plus",
+      "priceUsd": 9.99,
+      "priceZar": 149,
+      "billingCycle": "monthly",
+      "description": "Essential upgrades for active singles seeking romance in their city.",
+      "features": [
+        "Unlimited likes every 24 hours",
+        "5 free SuperLikes per week",
+        "Rewind your last accidental swipe",
+        "See who liked your profile before swiping",
+        "No third-party advertising"
+      ],
+      "itemCode": "FIFFY_SUB_PLUS_USD",
+      "isActive": true,
+      "isPopular": false
+    },
+    {
+      "id": "plan-gold",
+      "name": "VIP Gold Pan-African",
+      "priceUsd": 19.99,
+      "priceZar": 299,
+      "billingCycle": "monthly",
+      "badge": "Most Popular",
+      "description": "Unlock full Pan-African passport matching across SA, Nigeria, Kenya, Ghana & beyond.",
+      "features": [
+        "All Fiffy Plus features included",
+        "Cross-Border Passport: Match in any African country or Diaspora",
+        "1 Free Monthly Profile Boost (10x visibility)",
+        "Verified VIP Golden Badge on profile",
+        "Read Receipts on all chats",
+        "Priority delivery for all messages"
+      ],
+      "itemCode": "FIFFY_SUB_GOLD_USD",
+      "isActive": true,
+      "isPopular": true
+    },
+    {
+      "id": "plan-elite",
+      "name": "Diaspora Elite Concierge",
+      "priceUsd": 39.99,
+      "priceZar": 599,
+      "billingCycle": "monthly",
+      "badge": "Executive",
+      "description": "The premier tier for serious professionals and international African diaspora.",
+      "features": [
+        "All VIP Gold features included",
+        "Exclusive verified executive pool",
+        "Dedicated concierge relationship advisor",
+        "Unlimited profile boosts per month",
+        "Priority customer support via WhatsApp",
+        "Complimentary access to annual Diaspora Singles Gala"
+      ],
+      "itemCode": "FIFFY_SUB_ELITE_USD",
+      "isActive": true,
+      "isPopular": false
+    }
+  ],
+  "payfastConfig": {
+    "merchantId": "10000100",
+    "merchantKey": "46f0cd694581a",
+    "passPhrase": "fiffy_payfast_secret_pass",
+    "isSandbox": true,
+    "returnUrl": "/api/payfast/return",
+    "cancelUrl": "/api/payfast/cancel",
+    "notifyUrl": "/api/payfast/notify"
+  },
+  "adminSettings": {
+    "paymentsEnabled": true,
+    "paymentModel": "subscription",
+    "currency": "USD",
+    "gatewayMerchantId": "10000100",
+    "payfastMerchantKey": "46f0cd694581a",
+    "payfastPassphrase": "fiffy_payfast_secret_pass",
+    "payfastSandbox": true,
+    "requireIdVerification": false,
+    "minimumAge": 18,
+    "maxDistanceKm": 15000,
+    "freeDailySwipes": 50
+  },
+  "swipes": [],
+  "matches": [
+    {
+      "id": "match-1",
+      "userId": "user-1",
+      "user": {
+        "id": "user-1",
+        "name": "Amara Okafor",
+        "age": 26,
+        "gender": "woman",
+        "orientation": "straight",
+        "showMe": "men",
+        "job": "Fintech Product Lead & Podcaster",
+        "company": "PayFlow Africa",
+        "education": "University of Lagos",
+        "location": "Victoria Island, Lagos",
+        "city": "Lagos",
+        "country": "Nigeria",
+        "countryCode": "NG",
+        "countryFlag": "🇳🇬",
+        "preferredCountries": [
+          "Nigeria",
+          "South Africa",
+          "Ghana",
+          "United Kingdom (Diaspora)"
+        ],
+        "distanceKm": 4200,
+        "bio": "Tech by day, culinary explorer by weekend. Let’s argue over who makes the best jollof and catch live jazz at Bogobiri.",
+        "photos": [
+          "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=800&q=80"
+        ],
+        "interests": [
+          "Fintech",
+          "Afrobeats",
+          "Podcasting",
+          "Seafood Grills",
+          "Pan-African Tech",
+          "Fashion"
+        ],
+        "prompts": [
+          {
+            "id": "p-m1",
+            "question": "My simple pleasures...",
+            "answer": "Fresh coconut water at Landmark Beach and unreleased Asake demos on repeat."
+          },
+          {
+            "id": "p-m2",
+            "question": "Dating me is like...",
+            "answer": "Having a built-in hype woman who will also critique your pitch deck."
+          },
+          {
+            "id": "p-m3",
+            "question": "A boundary of mine is...",
+            "answer": "Clear communication and mutual ambition. Ghosting is not an option."
+          }
+        ],
+        "verified": true,
+        "online": true,
+        "lastActive": "Active now",
+        "height": "5'7\" (170 cm)",
+        "starSign": "Taurus",
+        "datingGoal": "Long-term relationship",
+        "drinking": "Socially",
+        "smoking": "Never",
+        "spotifyTopArtist": "Wizkid, Tems & Rema",
+        "likedMe": true
+      },
+      "matchedAt": "2 hours ago",
+      "lastMessage": "I would love to connect next time I fly to Johannesburg!",
+      "lastMessageTime": "15m ago",
+      "unreadCount": 1,
+      "isSuperMatch": false
+    },
+    {
+      "id": "match-2",
+      "userId": "user-2",
+      "user": {
+        "id": "user-2",
+        "name": "Thabo Ndlovu",
+        "age": 29,
+        "gender": "man",
+        "orientation": "straight",
+        "showMe": "women",
+        "job": "Renewable Energy Engineer & Cyclist",
+        "company": "SolAfrica Dynamics",
+        "education": "University of Cape Town",
+        "location": "Sandton, Johannesburg",
+        "city": "Johannesburg",
+        "country": "South Africa",
+        "countryCode": "ZA",
+        "countryFlag": "🇿🇦",
+        "preferredCountries": [
+          "South Africa",
+          "Zimbabwe",
+          "Kenya",
+          "any"
+        ],
+        "distanceKm": 12,
+        "bio": "Building solar microgrids across the Southern hemisphere. Passionate about sunrise trail cycling, Sunday braais, and vintage vinyl.",
+        "photos": [
+          "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=800&q=80"
+        ],
+        "interests": [
+          "Solar Energy",
+          "Trail Cycling",
+          "Braai Master",
+          "Amapiano",
+          "Hiking Drakensberg",
+          "Espresso"
+        ],
+        "prompts": [
+          {
+            "id": "p-j1",
+            "question": "I get overly competitive about...",
+            "answer": "Who braais the tenderest lamb chops and wins family board game nights."
+          },
+          {
+            "id": "p-j2",
+            "question": "The most spontaneous thing I have done...",
+            "answer": "Drove through Botswana all the way to Chobe National Park on 4 hours notice."
+          }
+        ],
+        "verified": true,
+        "online": true,
+        "lastActive": "12m ago",
+        "height": "6'2\" (188 cm)",
+        "starSign": "Capricorn",
+        "datingGoal": "Marriage",
+        "drinking": "Socially",
+        "smoking": "Never",
+        "spotifyTopArtist": "Kelvin Momo, Sun-El Musician & Ami Faku",
+        "superLikedMe": true
+      },
+      "matchedAt": "Yesterday",
+      "lastMessage": "Are we trying that rooftop braai spot in Rosebank on Friday?",
+      "lastMessageTime": "2h ago",
+      "unreadCount": 0,
+      "isSuperMatch": true
+    },
+    {
+      "id": "match-3",
+      "userId": "user-4",
+      "user": {
+        "id": "user-4",
+        "name": "Kwame Mensah",
+        "age": 28,
+        "gender": "man",
+        "orientation": "straight",
+        "showMe": "women",
+        "job": "Architect & Heritage Restorer",
+        "company": "Studio Akan Accra",
+        "education": "KNUST Kumasi",
+        "location": "Airport Residential, Accra",
+        "city": "Accra",
+        "country": "Ghana",
+        "countryCode": "GH",
+        "countryFlag": "🇬🇭",
+        "preferredCountries": [
+          "Ghana",
+          "Nigeria",
+          "United Kingdom (Diaspora)",
+          "South Africa"
+        ],
+        "distanceKm": 4600,
+        "bio": "Designing modern sustainable homes inspired by traditional West African earthen architecture. Weekend surfer at Busua.",
+        "photos": [
+          "https://images.unsplash.com/photo-1507152832244-10d45c7eda57?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1563237023-b1e970526dcb?auto=format&fit=crop&w=800&q=80"
+        ],
+        "interests": [
+          "Architecture",
+          "Surfing",
+          "Highlife Music",
+          "Plantain & Kelewele",
+          "Art Galleries",
+          "Sailing"
+        ],
+        "prompts": [
+          {
+            "id": "p-k1",
+            "question": "My most controversial opinion...",
+            "answer": "Ghanaian jollof has the smokiness that cannot be matched anywhere else on the continent!"
+          },
+          {
+            "id": "p-k2",
+            "question": "Dating me is like...",
+            "answer": "Touring historical castles and catching golden hour at Labadi beach bar."
+          }
+        ],
+        "verified": true,
+        "online": false,
+        "lastActive": "1h ago",
+        "height": "6'1\" (185 cm)",
+        "starSign": "Virgo",
+        "datingGoal": "Marriage",
+        "drinking": "Socially",
+        "smoking": "Never",
+        "spotifyTopArtist": "King Promise, Black Sherif & Ebo Taylor",
+        "likedMe": true
+      },
+      "matchedAt": "3 days ago",
+      "lastMessage": "Next time you visit Accra, I owe you the best kelewele in town.",
+      "lastMessageTime": "1d ago",
+      "unreadCount": 0,
+      "isSuperMatch": false
+    }
+  ],
+  "messages": {
+    "match-1": [
+      {
+        "id": "msg-1",
+        "matchId": "match-1",
+        "senderId": "user-1",
+        "text": "Sawubona Lerato! Loved your bio about African contemporary art. Have you visited the Zeitz MOCAA in Cape Town?",
+        "timestamp": "1:45 PM",
+        "isRead": true
+      },
+      {
+        "id": "msg-2",
+        "matchId": "match-1",
+        "senderId": "me",
+        "text": "Hi Amara! Yes, Zeitz is absolute magic! Also loved your podcast on fintech in Lagos, super inspiring!",
+        "timestamp": "1:52 PM",
+        "isRead": true,
+        "reactions": [
+          "❤️"
+        ]
+      },
+      {
+        "id": "msg-3",
+        "matchId": "match-1",
+        "senderId": "user-1",
+        "text": "Thank you so much! Pan-African connections are truly the future.",
+        "timestamp": "2:10 PM",
+        "isRead": true
+      },
+      {
+        "id": "msg-4",
+        "matchId": "match-1",
+        "senderId": "user-1",
+        "text": "I would love to connect next time I fly to Johannesburg!",
+        "timestamp": "2:35 PM",
+        "isRead": false
+      }
+    ],
+    "match-2": [
+      {
+        "id": "msg-201",
+        "matchId": "match-2",
+        "senderId": "me",
+        "text": "Hey Thabo! Another solar tech enthusiast in Joburg? Small world!",
+        "timestamp": "Yesterday",
+        "isRead": true
+      },
+      {
+        "id": "msg-202",
+        "matchId": "match-2",
+        "senderId": "user-2",
+        "text": "Hey Lerato! Definitely! Love that we share the same passion for clean energy and good braai.",
+        "timestamp": "Yesterday",
+        "isRead": true
+      },
+      {
+        "id": "msg-203",
+        "matchId": "match-2",
+        "senderId": "user-2",
+        "text": "Are we trying that rooftop braai spot in Rosebank on Friday?",
+        "timestamp": "2h ago",
+        "isRead": true,
+        "reactions": [
+          "🔥"
+        ]
+      }
+    ],
+    "match-3": [
+      {
+        "id": "msg-301",
+        "matchId": "match-3",
+        "senderId": "user-4",
+        "text": "Akwaaba from Accra, Lerato! Your taste in photography is amazing.",
+        "timestamp": "3d ago",
+        "isRead": true
+      },
+      {
+        "id": "msg-302",
+        "matchId": "match-3",
+        "senderId": "me",
+        "text": "Thank you Kwame! Your earthen architecture designs in Kumasi are incredible.",
+        "timestamp": "2d ago",
+        "isRead": true
+      },
+      {
+        "id": "msg-303",
+        "matchId": "match-3",
+        "senderId": "user-4",
+        "text": "Next time you visit Accra, I owe you the best kelewele in town.",
+        "timestamp": "1d ago",
+        "isRead": true
+      }
+    ]
+  },
+  "reports": [
+    {
+      "id": "rep-1",
+      "reportedUserId": "user-fake-99",
+      "reportedUserName": "ForexTrader_Lagos",
+      "reportedUserPhoto": "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=400&q=80",
+      "reporterId": "user-1",
+      "reporterName": "Amara Okafor",
+      "reason": "Spam or Bot",
+      "details": "Instantly messaged proposing an offshore crypto trading scheme.",
+      "status": "pending",
+      "reportedAt": "1 hour ago"
+    },
+    {
+      "id": "rep-2",
+      "reportedUserId": "user-fake-102",
+      "reportedUserName": "Dave S.",
+      "reportedUserPhoto": "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=400&q=80",
+      "reporterId": "user-5",
+      "reporterName": "Zola Mthembu",
+      "reason": "Harassment / Abusive Messages",
+      "details": "Inappropriate language when I politely declined a date.",
+      "status": "pending",
+      "reportedAt": "4 hours ago"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-101",
+      "userId": "user-2",
+      "userName": "Thabo Ndlovu",
+      "planId": "plan-gold",
+      "planName": "VIP Gold Pan-African",
+      "amountZar": 299,
+      "paymentMethod": "PayFast Instant EFT",
+      "payfastPaymentId": "PF-9823412",
+      "status": "COMPLETE",
+      "createdAt": "2026-09-02T05:33:17.613Z"
+    },
+    {
+      "id": "tx-102",
+      "userId": "user-6",
+      "userName": "Kofi Asante",
+      "planId": "plan-elite",
+      "planName": "Diaspora Elite Concierge",
+      "amountZar": 599,
+      "paymentMethod": "PayFast Visa Card",
+      "payfastPaymentId": "PF-9823413",
+      "status": "COMPLETE",
+      "createdAt": "2026-08-30T05:33:17.613Z"
+    }
+  ],
+  "broadcasts": []
+}
