@@ -26,6 +26,7 @@ interface AppContextType {
   // Auth
   authUser: AuthUser | null;
   isLoggedIn: boolean;
+  authLoading: boolean;
   loginUser: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   signupUser: (userData: any) => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => void;
@@ -119,6 +120,7 @@ const API_BASE = 'http://localhost:3000';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(INITIAL_CURRENT_USER);
   const [inAppTab, setInAppTab] = useState<InAppTab>('discover');
   const [viewMode, setViewMode] = useState<'swipe' | 'grid'>('swipe');
@@ -162,6 +164,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setCurrentUser((prev) => ({ ...prev, ...saved }));
         } catch {}
       }
+      setAuthLoading(false);
     });
 
     // Try to fetch live profiles from the backend
@@ -487,6 +490,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const value: AppContextType = {
     authUser,
     isLoggedIn: !!authUser,
+    authLoading,
     loginUser,
     signupUser,
     logoutUser,

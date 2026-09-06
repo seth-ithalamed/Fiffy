@@ -8,7 +8,7 @@ export const ToastStack: React.FC = () => {
   if (!toasts.length) return null;
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <View style={styles.container}>
       {toasts.map((t) => (
         <TouchableOpacity
           key={t.id}
@@ -36,6 +36,7 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 999,
     gap: 8,
+    pointerEvents: 'box-none' as any,
   },
   toast: {
     backgroundColor: '#1a0b2e',

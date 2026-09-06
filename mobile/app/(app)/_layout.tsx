@@ -1,5 +1,6 @@
 import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../../src/context/AppContext';
@@ -34,10 +35,14 @@ function TabIcon({ icon, label, focused, badge }: { icon: string; label: string;
 
 export default function AppLayout() {
   const { isLoggedIn, matches } = useApp();
+  const router = useRouter();
 
-  if (!isLoggedIn) {
-    return <Redirect href="/auth" />;
-  }
+  // Guard: if somehow landed here without auth, push to auth
+  React.useEffect(() => {
+    if (!isLoggedIn) {
+      router.replace('/auth');
+    }
+  }, [isLoggedIn]);
 
   const totalUnread = matches.reduce((a, m) => a + (m.unreadCount || 0), 0);
 
