@@ -556,9 +556,18 @@ export const ProfileEditor: React.FC = () => {
           </h3>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#15082a]/70 border border-white/10">
             <div>
-              <div className="text-xs font-bold text-white">Active Account Session</div>
-              <div className="text-[11px] text-purple-300">
-                {authUser ? `Signed in as ${authUser.email}` : `Signed in as ${currentUser.name}`}
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Active Account Session</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                  Secured
+                </span>
+              </div>
+              <div className="text-[11px] text-purple-200 mt-0.5">
+                Signed in as <strong className="text-white">{currentUser.name}</strong>
+              </div>
+              <div className="text-[11px] text-pink-300/90 flex items-center gap-1 mt-1">
+                <Lock className="w-3 h-3 text-pink-400 shrink-0" />
+                <span>Contact number and email are 100% confidential and hidden from everyone.</span>
               </div>
             </div>
             <button

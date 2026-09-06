@@ -22,7 +22,9 @@ import {
   MicOff,
   VideoOff,
   Lock,
+  ShieldCheck,
 } from 'lucide-react';
+import { hasContactInfo, maskContactInfo } from '../../lib/privacy';
 
 export const ChatView: React.FC = () => {
   const {
@@ -357,6 +359,14 @@ export const ChatView: React.FC = () => {
             </div>
           </div>
 
+          {/* Contact Information Privacy Banner */}
+          <div className="px-4 py-2 bg-[#120625]/90 border-b border-purple-500/20 flex items-center justify-center gap-2 text-xs text-purple-200">
+            <Lock className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+            <span>
+              <strong className="text-white">Safety Guarantee:</strong> Contact numbers and emails are strictly hidden from everyone.
+            </span>
+          </div>
+
           {/* Messages Stream */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
             {/* Icebreaker Prompt Banner at top of chat */}
@@ -365,12 +375,15 @@ export const ChatView: React.FC = () => {
                 <span className="text-pink-400 font-bold block mb-1">
                   You matched with {activeChatMatch.user.name}!
                 </span>
-                &ldquo;{activeChatMatch.user.prompts[0]?.answer || activeChatMatch.user.bio}&rdquo;
+                &ldquo;{maskContactInfo(activeChatMatch.user.prompts[0]?.answer || activeChatMatch.user.bio)}&rdquo;
               </div>
             </div>
 
             {(currentMessages || []).map((msg) => {
               const isMe = msg.senderId === 'me';
+              const displayText = maskContactInfo(msg.text);
+              const isMasked = displayText.includes('[Contact number hidden for privacy]') || displayText.includes('[Email hidden for privacy]');
+
               return (
                 <div
                   key={msg.id}
@@ -383,7 +396,13 @@ export const ChatView: React.FC = () => {
                         : 'bg-[#1a0e30]/85 backdrop-blur-md text-purple-100 border border-white/10 rounded-bl-none shadow-sm'
                     }`}
                   >
-                    {msg.text}
+                    <div>{displayText}</div>
+                    {isMasked && (
+                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-200 bg-black/30 px-2 py-0.5 rounded-md border border-amber-500/30">
+                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span>Contact info hidden from everyone for safety</span>
+                      </div>
+                    )}
                     {msg.imageUrl && (
                       <img
                         src={msg.imageUrl}
@@ -463,6 +482,14 @@ export const ChatView: React.FC = () => {
 
               {/* Message Input Bar */}
               <div className="p-3 sm:p-4 bg-[#0e061d]/85 backdrop-blur-xl border-t border-white/[0.08]">
+                {hasContactInfo(inputText) && (
+                  <div className="mb-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2 animate-fadeIn">
+                    <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>
+                      <strong>Privacy Guard:</strong> Phone numbers and email addresses are automatically hidden from everyone upon sending.
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 bg-[#15092a]/80 backdrop-blur-md border border-white/10 rounded-2xl p-1.5 focus-within:border-pink-500/50 transition-colors">
                   <button
                     onClick={() =>

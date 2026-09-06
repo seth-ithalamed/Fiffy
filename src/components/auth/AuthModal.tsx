@@ -439,6 +439,14 @@ export const AuthModal: React.FC = () => {
               </div>
             </div>
 
+            {/* 100% Privacy Guarantee Pill */}
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-pink-500/10 border border-pink-500/20 text-[11px] text-pink-200">
+              <Lock className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+              <span>
+                <strong className="text-white font-semibold">Strict Privacy:</strong> Contact numbers and emails are 100% hidden from everyone. Other members will never see your number or email.
+              </span>
+            </div>
+
             {/* Password */}
             <div>
               <label htmlFor="signup-password" className="block text-xs font-semibold text-purple-200 mb-1.5">

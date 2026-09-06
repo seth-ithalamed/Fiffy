@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -177,9 +178,38 @@ function generatePayFastSignature(
   return crypto.createHash('md5').update(pfString).digest('hex');
 }
 
+// Contact info privacy masking utility: contact numbers and emails must be hidden from everyone
+const SERVER_EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/gi;
+const SERVER_PHONE_PATTERN = /(?:(?:\+?\d{1,4}[-.\s()]*)?(?:\(?\d{2,4}\)?[-.\s()]*)?\d{3,4}[-.\s()]*\d{3,4}(?:[-.\s()]*\d{1,4})?|\b\d{7,15}\b)/g;
+const SERVER_SPACED_PHONE_PATTERN = /(?:\b\d[\s.-]){6,}\d\b/g;
+
+function maskContactInfoServer(text: string): string {
+  if (!text) return text;
+  let masked = text.replace(SERVER_EMAIL_PATTERN, '[Email hidden for privacy]');
+  masked = masked.replace(SERVER_SPACED_PHONE_PATTERN, '[Contact number hidden for privacy]');
+  masked = masked.replace(SERVER_PHONE_PATTERN, (match) => {
+    const digits = match.replace(/\D/g, '');
+    if (digits.length >= 7 && digits.length <= 15) {
+      return '[Contact number hidden for privacy]';
+    }
+    return match;
+  });
+  return masked;
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+  // Cross-Origin Resource Sharing (enables Vercel frontend & Expo mobile app access)
+  app.use(
+    cors({
+      origin: '*',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    })
+  );
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -447,8 +477,15 @@ async function startServer() {
       profiles = profiles.filter((p) => p.gender === gender);
     }
 
-    // Strip passwords
-    const safeProfiles = profiles.map(({ password, ...rest }) => rest);
+    // Strip passwords, emails, phones, and contactNumbers to ensure contact numbers and emails are hidden from everyone
+    const safeProfiles = profiles.map(({ password, email, phone, contactNumber, ...rest }) => ({
+      ...rest,
+      bio: maskContactInfoServer(rest.bio || ''),
+      prompts: (rest.prompts || []).map((pr: any) => ({
+        ...pr,
+        answer: maskContactInfoServer(pr.answer || ''),
+      })),
+    }));
     res.json({ profiles: safeProfiles });
   });
 
@@ -496,7 +533,12 @@ async function startServer() {
         isMatch = true;
         const matchId = `match-${Date.now()}`;
         const targetSafe = targetUser ? { ...targetUser } : null;
-        if (targetSafe) delete (targetSafe as any).password;
+        if (targetSafe) {
+          delete (targetSafe as any).password;
+          delete (targetSafe as any).email;
+          delete (targetSafe as any).phone;
+          delete (targetSafe as any).contactNumber;
+        }
 
         newMatchObj = {
           id: matchId,
@@ -520,13 +562,30 @@ async function startServer() {
 
   // 7. MATCHES: Get User Matches
   app.get('/api/matches', (req, res) => {
-    res.json({ matches: db.matches });
+    const safeMatches = (db.matches || []).map((m) => {
+      if (!m.user) return m;
+      const { password, email, phone, contactNumber, ...userSafe } = m.user as any;
+      return {
+        ...m,
+        lastMessage: m.lastMessage ? maskContactInfoServer(m.lastMessage) : m.lastMessage,
+        user: {
+          ...userSafe,
+          bio: maskContactInfoServer(userSafe.bio || ''),
+        },
+      };
+    });
+    res.json({ matches: safeMatches });
   });
 
   // 8. MESSAGES: Get & Send
   app.get('/api/messages/:matchId', (req, res) => {
     const { matchId } = req.params;
-    res.json({ messages: db.messages[matchId] || [] });
+    const rawMsgs = db.messages[matchId] || [];
+    const safeMsgs = rawMsgs.map((m) => ({
+      ...m,
+      text: maskContactInfoServer(m.text || ''),
+    }));
+    res.json({ messages: safeMsgs });
   });
 
   app.post('/api/messages', (req, res) => {
@@ -548,11 +607,13 @@ async function startServer() {
       db.messages[matchId] = [];
     }
 
+    const sanitizedText = maskContactInfoServer(text);
+
     const newMsg = {
       id: `msg-${Date.now()}`,
       matchId,
       senderId: senderId || 'me',
-      text,
+      text: sanitizedText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       imageUrl: imageUrl || null,
       isRead: true,
@@ -564,7 +625,7 @@ async function startServer() {
     // Update match last message
     const match = db.matches.find((m) => m.id === matchId);
     if (match) {
-      match.lastMessage = text;
+      match.lastMessage = sanitizedText;
       match.lastMessageTime = 'Just now';
     }
 
@@ -1106,7 +1167,13 @@ async function startServer() {
 
   // 17. ADMIN: List all registered DB users
   app.get('/api/admin/users', (req, res) => {
-    const safeUsers = db.users.map(({ password: _, ...u }) => u);
+    // Contact numbers and emails must be hidden from everyone
+    const safeUsers = db.users.map(({ password: _, email: _e, phone: _p, contactNumber: _c, ...u }) => ({
+      ...u,
+      email: '[Hidden for Privacy]',
+      phone: '[Hidden for Privacy]',
+      contactNumber: '[Hidden for Privacy]',
+    }));
     res.json({ users: safeUsers });
   });
 
