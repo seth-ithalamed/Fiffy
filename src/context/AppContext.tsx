@@ -28,6 +28,11 @@ import {
   AFRICAN_COUNTRIES,
   INITIAL_TESTIMONIALS,
 } from '../data/mockData';
+import { hasContactInfo, maskContactInfo } from '../lib/privacy';
+import { apiEndpoint } from '../lib/api';
+
+// Configurable API fetcher resolving relative or remote Render backend
+const fetchApi = (url: string, init?: RequestInit) => fetch(apiEndpoint(url), init);
 
 export type SurfaceType = 'marketing' | 'web-app' | 'admin';
 export type InAppTab = 'discover' | 'matches' | 'chat' | 'likes' | 'profile';
@@ -298,7 +303,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshActiveSinglesStats = async () => {
     try {
-      const res = await fetch('/api/active-singles-stats');
+      const res = await fetchApi('/api/active-singles-stats');
       const data = await res.json();
       if (data.success && Array.isArray(data.activeCountries)) {
         setActiveSinglesStats({
@@ -314,7 +319,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshPlans = async () => {
     try {
-      const res = await fetch('/api/plans');
+      const res = await fetchApi('/api/plans');
       const data = await res.json();
       if (data.success && Array.isArray(data.plans)) {
         setSubscriptionPlans(data.plans);
@@ -329,7 +334,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Synchronize with backend on mount
   useEffect(() => {
     // 1. Fetch profiles
-    fetch('/api/profiles')
+    fetchApi('/api/profiles')
       .then((res) => res.json())
       .then((data) => {
         if (data.profiles && Array.isArray(data.profiles) && data.profiles.length > 0) {
@@ -345,7 +350,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     refreshActiveSinglesStats();
 
     // 3. Fetch PayFast config
-    fetch('/api/admin/payfast-config')
+    fetchApi('/api/admin/payfast-config')
       .then((res) => res.json())
       .then((data) => {
         if (data.config) {
@@ -355,7 +360,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .catch((e) => console.warn('Using default PayFast config fallback', e));
 
     // 4. Fetch Testimonials
-    fetch('/api/testimonials')
+    fetchApi('/api/testimonials')
       .then((res) => res.json())
       .then((data) => {
         if (data.testimonials && Array.isArray(data.testimonials)) {
@@ -365,7 +370,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .catch((e) => console.warn('Using default testimonials fallback', e));
 
     // 5. Fetch Admin Users
-    fetch('/api/admin/users')
+    fetchApi('/api/admin/users')
       .then((res) => res.json())
       .then((data) => {
         if (data.users && Array.isArray(data.users)) {
@@ -440,7 +445,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const loginUser = async (identifier: string, pass: string) => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetchApi('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -472,7 +477,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const signupUser = async (userData: any) => {
     try {
-      const res = await fetch('/api/auth/signup', {
+      const res = await fetchApi('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
@@ -491,7 +496,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Refresh dynamic active singles real stats from backend DB
         refreshActiveSinglesStats();
         // Refresh profiles in discovery deck
-        fetch('/api/profiles')
+        fetchApi('/api/profiles')
           .then((r) => r.json())
           .then((d) => {
             if (d.profiles && Array.isArray(d.profiles)) setDeckProfiles(d.profiles);
@@ -517,7 +522,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ADMIN METHODS
   const loginAdmin = async (email: string, pass: string) => {
     try {
-      const res = await fetch('/api/auth/admin-login', {
+      const res = await fetchApi('/api/auth/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: pass }),
@@ -597,7 +602,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Call server to persist swipe & check mutual match
     try {
-      const res = await fetch('/api/swipes', {
+      const res = await fetchApi('/api/swipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -675,11 +680,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return;
     }
 
+    // Check if text contains contact number or email
+    if (hasContactInfo(text)) {
+      showToast(
+        'Privacy Guard 🔒',
+        'Contact numbers and emails are automatically hidden to protect everyone’s personal safety and privacy.',
+        'info'
+      );
+    }
+
+    const sanitizedText = maskContactInfo(text.trim());
+
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
       matchId,
       senderId: 'me',
-      text: text.trim(),
+      text: sanitizedText,
       timestamp: 'Just now',
       imageUrl,
       isRead: false,
@@ -693,16 +709,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setMatches((prev) =>
       prev.map((m) =>
         m.id === matchId
-          ? { ...m, lastMessage: text.trim() || 'Photo sent', lastMessageTime: 'Just now' }
+          ? { ...m, lastMessage: sanitizedText || 'Photo sent', lastMessageTime: 'Just now' }
           : m
       )
     );
 
     // Persist to server
-    fetch('/api/messages', {
+    fetchApi('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, senderId: currentUser.id, text: text.trim(), imageUrl }),
+      body: JSON.stringify({ matchId, senderId: currentUser.id, text: sanitizedText, imageUrl }),
     }).catch((e) => console.warn('Persisting message to server failed', e));
 
     // Simulated conversational reply
@@ -822,7 +838,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       selectedPayFastPlan.name.toLowerCase().includes('boost');
 
     try {
-      const res = await fetch('/api/payfast/complete', {
+      const res = await fetchApi('/api/payfast/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -870,7 +886,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // SUBSCRIPTION MANAGEMENT (From Admin Portal)
   const addOrUpdateSubscriptionPlan = async (plan: Partial<SubscriptionPlan>) => {
     try {
-      const res = await fetch('/api/admin/subscriptions', {
+      const res = await fetchApi('/api/admin/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(plan),
@@ -895,7 +911,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteSubscriptionPlan = async (planId: string) => {
     try {
-      const res = await fetch(`/api/admin/subscriptions/${planId}`, { method: 'DELETE' });
+      const res = await fetchApi(`/api/admin/subscriptions/${planId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.plans) setSubscriptionPlans(data.plans);
     } catch {
@@ -906,7 +922,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updatePayfastConfig = async (cfg: Partial<PayFastConfig>) => {
     try {
-      const res = await fetch('/api/admin/payfast-config', {
+      const res = await fetchApi('/api/admin/payfast-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg),
@@ -921,10 +937,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const clearDemoData = async () => {
     try {
-      const res = await fetch('/api/admin/clear-demo-data', { method: 'POST' });
+      const res = await fetchApi('/api/admin/clear-demo-data', { method: 'POST' });
       const data = await res.json();
       // Reload profiles from server
-      const pRes = await fetch('/api/profiles');
+      const pRes = await fetchApi('/api/profiles');
       const pData = await pRes.json();
       if (pData.profiles) {
         setDeckProfiles(pData.profiles);
@@ -940,8 +956,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const resetDemoData = async () => {
     try {
-      await fetch('/api/admin/reset-demo-data', { method: 'POST' });
-      const pRes = await fetch('/api/profiles');
+      await fetchApi('/api/admin/reset-demo-data', { method: 'POST' });
+      const pRes = await fetchApi('/api/profiles');
       const pData = await pRes.json();
       if (pData.profiles) {
         setDeckProfiles(pData.profiles);
@@ -982,7 +998,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // TESTIMONIAL METHODS
   const submitTestimonial = async (data: Partial<Testimonial>) => {
     try {
-      const res = await fetch('/api/testimonials/submit', {
+      const res = await fetchApi('/api/testimonials/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -1001,7 +1017,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const adminAddOrEditTestimonial = async (data: Partial<Testimonial>) => {
     try {
-      const res = await fetch('/api/admin/testimonials', {
+      const res = await fetchApi('/api/admin/testimonials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -1018,7 +1034,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const adminDeleteTestimonial = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/testimonials/${id}`, { method: 'DELETE' });
+      const res = await fetchApi(`/api/admin/testimonials/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.testimonials) {
         setTestimonials(json.testimonials);
@@ -1032,7 +1048,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ADMIN USER MANAGEMENT METHODS
   const fetchAdminUsers = async () => {
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetchApi('/api/admin/users');
       const data = await res.json();
       if (data.users) setAdminUsersList(data.users);
     } catch (e) {
@@ -1042,7 +1058,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const adminAddUser = async (userData: any) => {
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await fetchApi('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
@@ -1067,7 +1083,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const adminToggleUserExemption = async (userId: string, isExempt?: boolean) => {
     try {
-      const res = await fetch(`/api/admin/users/${userId}/exemption`, {
+      const res = await fetchApi(`/api/admin/users/${userId}/exemption`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isExempt }),
@@ -1093,7 +1109,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const adminDeleteUser = async (userId: string) => {
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      const res = await fetchApi(`/api/admin/users/${userId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setAdminUsersList((prev) => prev.filter((u) => u.id !== userId));

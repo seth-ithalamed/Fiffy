@@ -929,7 +929,10 @@ export const AdminDashboard: React.FC = () => {
                                       <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Admin VIP Exemption" />
                                     )}
                                   </div>
-                                  <div className="text-[11px] text-gray-400">{u.email}</div>
+                                  <div className="text-[11px] text-purple-300/80 flex items-center gap-1 mt-0.5">
+                                    <Lock className="w-3 h-3 text-pink-400 shrink-0" />
+                                    <span>Contact &amp; email hidden for privacy</span>
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -1086,6 +1089,11 @@ export const AdminDashboard: React.FC = () => {
                           className="w-full px-3 py-2 rounded-xl bg-[#1e0e38] border border-white/10 text-white text-xs focus:outline-none focus:border-pink-500"
                         />
                       </div>
+                    </div>
+
+                    <div className="text-[11px] text-pink-300/90 flex items-center gap-1.5 p-2 rounded-xl bg-pink-500/10 border border-pink-500/20">
+                      <Lock className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                      <span>Contact numbers and emails are strictly hidden from everyone on Fiffy to protect user identity.</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

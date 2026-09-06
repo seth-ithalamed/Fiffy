@@ -19,6 +19,7 @@ import {
   Share2,
   Lock,
 } from 'lucide-react';
+import { maskContactInfo } from '../../lib/privacy';
 
 export const ProfileDetailModal: React.FC = () => {
   const {
@@ -165,7 +166,7 @@ export const ProfileDetailModal: React.FC = () => {
                   About Me
                 </h4>
                 <p className="text-sm text-purple-100 leading-relaxed">
-                  {inspectedProfile.bio}
+                  {maskContactInfo(inspectedProfile.bio)}
                 </p>
               </div>
             )}
@@ -181,10 +182,28 @@ export const ProfileDetailModal: React.FC = () => {
                   <span>{prompt.question}</span>
                 </div>
                 <p className="text-sm font-display font-medium text-white leading-relaxed">
-                  &ldquo;{prompt.answer}&rdquo;
+                  &ldquo;{maskContactInfo(prompt.answer)}&rdquo;
                 </p>
               </div>
             ))}
+
+            {/* Safe Privacy Guarantee */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#17092c] to-[#120624] border border-purple-500/30 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-400 shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div className="text-xs">
+                <div className="font-bold text-white flex items-center gap-2">
+                  <span>Privacy Guard Active</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                    Confidential
+                  </span>
+                </div>
+                <p className="text-[11px] text-purple-200/80 mt-0.5">
+                  Contact numbers and emails are 100% hidden from everyone. Connect safely through Fiffy’s built-in encrypted messaging.
+                </p>
+              </div>
+            </div>
 
             {/* Lifestyle & Vibe Grid */}
             <div className="grid grid-cols-2 gap-2 text-xs">

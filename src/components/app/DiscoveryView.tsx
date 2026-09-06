@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 import { ALL_INTEREST_TAGS, AFRICAN_COUNTRIES } from '../../data/mockData';
+import { maskContactInfo } from '../../lib/privacy';
 
 export const DiscoveryView: React.FC = () => {
   const {
@@ -311,7 +312,7 @@ export const DiscoveryView: React.FC = () => {
 
                       {/* Bio or Prompt Answer Preview */}
                       <p className="text-xs text-slate-200/90 mt-2.5 line-clamp-2 leading-relaxed bg-black/50 backdrop-blur-sm p-2 rounded-xl border border-white/10">
-                        &ldquo;{activeCard.prompts[0]?.answer || activeCard.bio}&rdquo;
+                        &ldquo;{maskContactInfo(activeCard.prompts[0]?.answer || activeCard.bio)}&rdquo;
                       </p>
 
                       {/* Interests Chips */}
@@ -403,7 +404,7 @@ export const DiscoveryView: React.FC = () => {
                       {profile.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
                     </div>
                     <p className="text-[11px] text-purple-200/80 truncate mt-0.5">
-                      {profile.job || profile.bio}
+                      {maskContactInfo(profile.job || profile.bio)}
                     </p>
                   </div>
                 </div>
