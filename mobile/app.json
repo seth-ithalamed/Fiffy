@@ -3,6 +3,9 @@
     "name": "Fiffy",
     "slug": "fiffy",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -15,14 +18,17 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chesapride.fiffy"
+      "bundleIdentifier": "com.chesapride.fiffy",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0414"
       },
-      "package": "com.chesapride.fiffy"
+      "package": "com.chesapride.fiffy",
+      "versionCode": 1,
+      "permissions": []
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,6 +40,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7189a815-f17e-41cf-a489-815d3017aa99"
     },
     "extra": {
       "eas": {
