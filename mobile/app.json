@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Fiffy's Match Making",
-    "slug": "fiffys-mobile",
+    "name": "Fiffy",
+    "slug": "fiffy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "fiffys",
+    "scheme": "fiffy",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -15,14 +15,14 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fiffys.matchmaking"
+      "bundleIdentifier": "com.chesapride.fiffy"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0414"
       },
-      "package": "com.fiffys.matchmaking"
+      "package": "com.chesapride.fiffy"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,6 +34,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7189a815-f17e-41cf-a489-815d3017aa99"
+      }
+    },
+    "owner": "chesa-pride"
   }
 }
