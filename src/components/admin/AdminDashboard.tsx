@@ -289,8 +289,8 @@ export const AdminDashboard: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-4 bg-[#080310] text-slate-100">
         <div className="w-full max-w-md bg-[#130726] border border-white/10 rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl gradient-fiffy mx-auto flex items-center justify-center shadow-lg shadow-pink-500/30">
-              <ShieldCheck className="w-6 h-6 text-white" />
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-pink-500/30 mx-auto shadow-lg shadow-pink-500/30 bg-[#0c051a] flex items-center justify-center">
+              <img src="/assets/favicon.png" alt="Fiffy Logo" className="w-full h-full object-cover" />
             </div>
             <h2 className="text-2xl font-bold font-display text-white">Administrator Portal</h2>
             <p className="text-xs text-purple-300/80">
@@ -359,9 +359,9 @@ export const AdminDashboard: React.FC = () => {
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/40">
           <div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-fiffy flex items-center justify-center shadow">
-                <ShieldCheck className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl overflow-hidden border border-pink-500/30 shadow flex items-center justify-center bg-[#0c051a]">
+                <img src="/assets/favicon.png" alt="Fiffy Logo" className="w-full h-full object-cover" />
               </div>
               <h1 className="font-display font-black text-2xl text-white">
                 Fiffy Global Administration

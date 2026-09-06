@@ -54,7 +54,7 @@ export const MarketingLanding: React.FC = () => {
             {/* Left Column: Bold Tagline & Value Props */}
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-pink-950/60 border border-pink-500/30 text-pink-300 text-xs font-semibold tracking-wide shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+                <img src="/assets/favicon.png" alt="Fiffy" className="w-4 h-4 rounded-full object-cover" />
                 <span>Global Matchmaking &bull; Connecting African Singles Everywhere in the World</span>
               </div>
 
@@ -406,8 +406,8 @@ export const MarketingLanding: React.FC = () => {
         <footer className="py-12 px-4 border-t border-purple-900/40 bg-[#050209] text-xs text-purple-300/70 text-center">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg gradient-fiffy flex items-center justify-center">
-                <Heart className="w-3 h-3 text-white fill-white" />
+              <div className="w-7 h-7 rounded-lg overflow-hidden border border-pink-500/30 bg-[#0c051a] flex items-center justify-center shadow">
+                <img src="/assets/favicon.png" alt="Fiffy Logo" className="w-full h-full object-cover" />
               </div>
               <span className="font-bold text-white font-display">Fiffy&apos;s Match Making</span>
               <span className="text-[10px] text-pink-400 font-semibold">&bull; Africans Everywhere in the World</span>

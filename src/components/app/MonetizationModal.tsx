@@ -33,8 +33,8 @@ export const MonetizationModal: React.FC = () => {
 
         {/* Title */}
         <div className="text-center max-w-md mx-auto">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/20 text-pink-300 text-xs font-bold uppercase tracking-wider mb-2 border border-pink-500/30">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/20 text-pink-300 text-xs font-bold uppercase tracking-wider mb-2 border border-pink-500/30">
+            <img src="/assets/favicon.png" alt="Fiffy" className="w-3.5 h-3.5 rounded-full object-cover" />
             <span>Fiffy VIP Subscriptions</span>
           </div>
           <h2 className="text-3xl font-display font-extrabold text-white">

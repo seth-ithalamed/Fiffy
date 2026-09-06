@@ -181,8 +181,8 @@ export const AuthModal: React.FC = () => {
 
         {/* Modal Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-2xl gradient-fiffy flex items-center justify-center shadow-lg shadow-pink-500/30">
-            <Heart className="w-5 h-5 text-white fill-white" />
+          <div className="w-11 h-11 rounded-2xl overflow-hidden border border-pink-500/30 shadow-lg shadow-pink-500/25 bg-[#0c051a] flex items-center justify-center">
+            <img src="/assets/favicon.png" alt="Fiffy Logo" className="w-full h-full object-cover" />
           </div>
           <div>
             <h2 className="text-xl font-bold font-display text-white">

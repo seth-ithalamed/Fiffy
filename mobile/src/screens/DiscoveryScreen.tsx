@@ -202,7 +202,7 @@ function FilterDrawer({ visible, onClose }: { visible: boolean; onClose: () => v
 }
 
 // ── Swipe Card ─────────────────────────────────────────────────────────────
-function SwipeCard({ profile }: { profile: UserProfile }) {
+function SwipeCard({ profile }: { profile: UserProfile; key?: string }) {
   const { handleSwipe, setInspectedProfile, currentUser } = useApp();
   const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
 

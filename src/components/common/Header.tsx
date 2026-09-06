@@ -70,8 +70,12 @@ export const Header: React.FC = () => {
           }}
           className="flex items-center gap-2.5 cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl gradient-fiffy flex items-center justify-center shadow-lg shadow-pink-500/30 group-hover:scale-105 transition-transform">
-            <Heart className="w-5 h-5 text-white fill-white animate-pulse" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-pink-500/25 group-hover:scale-105 transition-transform border border-pink-500/30 bg-[#0c051a] flex items-center justify-center">
+            <img
+              src="/assets/favicon.png"
+              alt="Fiffy's Match Making"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div>
             <div className="flex items-center gap-1.5">

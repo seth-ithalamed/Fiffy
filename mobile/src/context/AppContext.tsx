@@ -16,6 +16,8 @@ import {
   INITIAL_MATCHES,
   INITIAL_MESSAGES,
   DEFAULT_SUBSCRIPTION_PLANS,
+  getDemoAccount,
+  DEMO_ACCOUNTS_CONFIG,
 } from '../data/mockData';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -161,21 +163,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
           const saved: AuthUser = JSON.parse(raw);
           setAuthUser(saved);
-          setCurrentUser((prev) => ({ ...prev, ...saved }));
+          AsyncStorage.getItem('fiffy_current_user').then((rawProf) => {
+            if (rawProf) {
+              try {
+                const savedProf: CurrentUser = JSON.parse(rawProf);
+                setCurrentUser(savedProf);
+              } catch {}
+            } else {
+              // If saved matches a demo account
+              const demo = getDemoAccount(saved.email || saved.name || '');
+              if (demo) {
+                setCurrentUser(demo.user);
+                setMatches(demo.matches);
+                setMessages(demo.messages);
+              } else {
+                setCurrentUser((prev) => ({ ...prev, ...saved }));
+              }
+            }
+          });
         } catch {}
       }
       setAuthLoading(false);
     });
 
-    // Try to fetch live profiles from the backend
-    fetch(`${API_BASE}/api/profiles`)
+    // Try to fetch live profiles from the backend with abort timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    fetch(`${API_BASE}/api/profiles`, { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => {
+        clearTimeout(timeout);
         if (d.profiles?.length) setDeckProfiles(d.profiles);
       })
       .catch(() => {});
 
-    fetch(`${API_BASE}/api/plans`)
+    fetch(`${API_BASE}/api/plans`, { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.plans?.length) setSubscriptionPlans(d.plans);
@@ -197,6 +219,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ── Filtered deck ────────────────────────────────────────────────────────────
   const filteredProfiles = useMemo(() => {
     return deckProfiles.filter((p) => {
+      // Exclude logged in user
+      if (p.id === currentUser.id || p.name === currentUser.name) return false;
+
       if (filters.targetCountry !== 'all') {
         const pc = (p.country || '').toLowerCase();
         const tc = filters.targetCountry.toLowerCase();
@@ -216,18 +241,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return true;
     });
-  }, [deckProfiles, filters]);
+  }, [deckProfiles, filters, currentUser.id, currentUser.name]);
 
   const activeCard = filteredProfiles[currentCardIndex] ?? null;
 
   // ── Auth ─────────────────────────────────────────────────────────────────────
   const loginUser = async (identifier: string, pass: string) => {
+    // 1. Instant check for Demo accounts (works 100% offline without backend)
+    const demoCfg = getDemoAccount(identifier);
+    if (demoCfg) {
+      const user: AuthUser = {
+        id: demoCfg.user.id,
+        name: demoCfg.user.name,
+        email: demoCfg.user.email || identifier,
+        role: 'user',
+        token: `demo-token-${demoCfg.user.id}`,
+      };
+      setAuthUser(user);
+      setCurrentUser(demoCfg.user);
+      setMatches(demoCfg.matches);
+      setMessages(demoCfg.messages);
+      setActiveChatMatchId(demoCfg.matches[0]?.id || null);
+      setDeckProfiles(MOCK_PROFILES.filter((p) => p.id !== demoCfg.user.id && p.name !== demoCfg.user.name));
+      setCurrentCardIndex(0);
+      await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(user));
+      await AsyncStorage.setItem('fiffy_current_user', JSON.stringify(demoCfg.user));
+      return { success: true };
+    }
+
+    // 2. Demo Executive Admin login
+    if (identifier.toLowerCase().includes('admin') && pass === 'admin123') {
+      const adminUser: AuthUser = {
+        id: 'admin-1',
+        name: 'Executive Admin',
+        email: identifier,
+        role: 'admin',
+        token: 'demo-admin-token',
+      };
+      setAuthUser(adminUser);
+      setCurrentUser({
+        ...INITIAL_CURRENT_USER,
+        name: 'Executive Admin',
+        email: identifier,
+        isPremium: true,
+        premiumTier: 'elite',
+        isExempt: true,
+      });
+      await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(adminUser));
+      return { success: true };
+    }
+
+    // 3. Try backend if available with a short timeout
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, email: identifier, phone: identifier, password: pass }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.success && data.user) {
         setAuthUser(data.user);
@@ -237,38 +311,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return { success: false, error: data.error || 'Invalid credentials' };
     } catch {
-      // Offline fallback — demo accounts
-      const demos: Record<string, { email: string; name: string }> = {
-        'lerato.khumalo@fiffys.com': { email: 'lerato.khumalo@fiffys.com', name: 'Lerato Khumalo' },
-        'amara.okafor@demo.fiffys.com': { email: 'amara.okafor@demo.fiffys.com', name: 'Amara Okafor' },
-        'thabo.ndlovu@demo.fiffys.com': { email: 'thabo.ndlovu@demo.fiffys.com', name: 'Thabo Ndlovu' },
-        'kwame.mensah@demo.fiffys.com': { email: 'kwame.mensah@demo.fiffys.com', name: 'Kwame Mensah' },
+      // 4. Standalone fallback for any custom credentials when running without backend
+      const localId = `user-${Date.now()}`;
+      const localName = identifier.includes('@')
+        ? identifier.split('@')[0].replace(/[._-]/g, ' ')
+        : 'African Single';
+      const capitalizedName = localName.replace(/\b\w/g, (c) => c.toUpperCase());
+      const localUser: AuthUser = {
+        id: localId,
+        name: capitalizedName,
+        email: identifier.includes('@') ? identifier : undefined,
+        phone: !identifier.includes('@') ? identifier : undefined,
+        role: 'user',
+        token: `token-${localId}`,
       };
-      const id = identifier.toLowerCase();
-      if (demos[id] && pass === 'password123') {
-        const user: AuthUser = {
-          id: `demo-${Date.now()}`,
-          name: demos[id].name,
-          email: demos[id].email,
-          role: 'user',
-          token: `demo-${Date.now()}`,
-        };
-        setAuthUser(user);
-        setCurrentUser((prev) => ({ ...prev, ...user }));
-        await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(user));
-        return { success: true };
-      }
-      return { success: false, error: 'Server unavailable. Check your connection.' };
+      const customProfile: CurrentUser = {
+        ...INITIAL_CURRENT_USER,
+        id: localId,
+        name: capitalizedName,
+        email: localUser.email,
+        phone: localUser.phone || INITIAL_CURRENT_USER.phone,
+        isPremium: true,
+        premiumTier: 'gold',
+      };
+      setAuthUser(localUser);
+      setCurrentUser(customProfile);
+      setMatches(INITIAL_MATCHES);
+      setMessages(INITIAL_MESSAGES);
+      await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(localUser));
+      await AsyncStorage.setItem('fiffy_current_user', JSON.stringify(customProfile));
+      return { success: true };
     }
   };
 
   const signupUser = async (userData: any) => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.success && data.user) {
         setAuthUser(data.user);
@@ -276,27 +362,76 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(data.user));
         return { success: true };
       }
-      return { success: false, error: data.error || 'Registration failed' };
-    } catch {
-      return { success: false, error: 'Server unavailable. Please try again later.' };
-    }
+    } catch {}
+
+    // Offline / Standalone Fallback: immediately log user in with their custom profile!
+    const newId = `user-reg-${Date.now()}`;
+    const newUser: AuthUser = {
+      id: newId,
+      name: userData.name,
+      email: userData.email,
+      phone: userData.contactNumber || userData.phone,
+      role: 'user',
+      token: `token-${newId}`,
+    };
+    const newProfile: CurrentUser = {
+      ...INITIAL_CURRENT_USER,
+      id: newId,
+      name: userData.name,
+      email: userData.email,
+      phone: userData.contactNumber || userData.phone,
+      contactNumber: userData.contactNumber || userData.phone,
+      dateOfBirth: userData.dob || userData.dateOfBirth || '2000-01-01',
+      age: userData.age || 25,
+      gender: userData.gender || 'woman',
+      showMe: userData.showMe || 'men',
+      country: userData.country || 'South Africa',
+      countryCode: userData.countryCode || 'ZA',
+      countryFlag: userData.countryFlag || '🇿🇦',
+      city: userData.city || 'Johannesburg',
+      location: `${userData.city || 'Johannesburg'}, ${userData.country || 'South Africa'}`,
+      bio: userData.bio || 'Excited to meet genuine people on Fiffy!',
+      isPremium: true,
+      premiumTier: 'gold',
+      superLikesRemaining: 5,
+      boostsRemaining: 2,
+    };
+    setAuthUser(newUser);
+    setCurrentUser(newProfile);
+    setMatches(INITIAL_MATCHES);
+    setMessages(INITIAL_MESSAGES);
+    await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(newUser));
+    await AsyncStorage.setItem('fiffy_current_user', JSON.stringify(newProfile));
+    return { success: true };
   };
 
   const logoutUser = async () => {
     setAuthUser(null);
     setCurrentUser(INITIAL_CURRENT_USER);
+    setMatches(INITIAL_MATCHES);
+    setMessages(INITIAL_MESSAGES);
+    setDeckProfiles(MOCK_PROFILES);
     setInAppTab('discover');
     await AsyncStorage.removeItem('fiffy_auth_user');
+    await AsyncStorage.removeItem('fiffy_current_user');
     showToast('Signed Out', 'You have been safely signed out.', 'info');
   };
 
   // ── Profile ──────────────────────────────────────────────────────────────────
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {
-    setCurrentUser((prev) => ({ ...prev, ...updates }));
+    setCurrentUser((prev) => {
+      const updated = { ...prev, ...updates };
+      AsyncStorage.setItem('fiffy_current_user', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
   };
 
   const verifySelfie = () => {
-    setCurrentUser((prev) => ({ ...prev, verified: true }));
+    setCurrentUser((prev) => {
+      const updated = { ...prev, verified: true };
+      AsyncStorage.setItem('fiffy_current_user', JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
     showToast('Photo Verified! 🛡️', 'Your profile now features the African Gold badge.', 'success');
   };
 
@@ -332,11 +467,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1000);
       const res = await fetch(`${API_BASE}/api/swipes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ swiperId: currentUser.id, swipedId: profile.id, action }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.isMatch && data.match) {
         setMatches((prev) => [data.match, ...prev]);

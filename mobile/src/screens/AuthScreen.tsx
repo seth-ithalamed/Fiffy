@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -127,14 +128,13 @@ export default function AuthScreen() {
           >
             {/* Header */}
             <View style={styles.header}>
-              <LinearGradient
-                colors={gradientPink}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.logoBox}
-              >
-                <Text style={styles.logoEmoji}>💖</Text>
-              </LinearGradient>
+              <View style={styles.logoBox}>
+                <Image
+                  source={require('../../assets/icon.png')}
+                  style={styles.logoImg}
+                  resizeMode="contain"
+                />
+              </View>
               <Text style={styles.appName}>Fiffy's Match Making</Text>
               <Text style={styles.tagline}>Connecting African & Diaspora singles with intention</Text>
             </View>
@@ -399,12 +399,26 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   header: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
   logoBox: {
-    width: 64, height: 64, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
+    width: 68,
+    height: 68,
+    borderRadius: 20,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: Colors.pink, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 14, elevation: 8,
+    backgroundColor: '#0c051a',
+    borderWidth: 1.5,
+    borderColor: 'rgba(236,72,153,0.3)',
+    shadowColor: Colors.pink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  logoEmoji: { fontSize: 28 },
+  logoImg: {
+    width: '100%',
+    height: '100%',
+  },
   appName: { fontSize: 22, fontWeight: '800', color: Colors.white, letterSpacing: -0.5 },
   tagline: { fontSize: 12, color: Colors.purpleText, marginTop: 4, textAlign: 'center' },
   tabBar: {
