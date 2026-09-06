@@ -1,0 +1,12 @@
+Save your Fiffy logo PNG here as:
+  - logo.png       (original, any size)
+  - favicon.png    (ideally 512x512 or the same as logo.png)
+  - icon-192.png   (same logo, will be used for PWA)
+  - icon-512.png   (same logo, will be used for PWA)
+  - og-image.png   (1200x630, used for social media share previews)
+
+You can use the same logo.png file for all of them by running:
+  copy logo.png favicon.png
+  copy logo.png icon-192.png
+  copy logo.png icon-512.png
+  copy logo.png og-image.png
