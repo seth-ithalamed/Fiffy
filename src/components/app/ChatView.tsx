@@ -4,8 +4,6 @@ import {
   Send,
   Image as ImageIcon,
   Smile,
-  Phone,
-  Video,
   MoreVertical,
   ShieldAlert,
   UserX,
@@ -17,12 +15,11 @@ import {
   Calendar,
   X,
   Camera,
-  PhoneOff,
-  Mic,
-  MicOff,
-  VideoOff,
   Lock,
   ShieldCheck,
+  AlertTriangle,
+  HeartHandshake,
+  Archive,
 } from 'lucide-react';
 import { hasContactInfo, maskContactInfo } from '../../lib/privacy';
 
@@ -43,16 +40,16 @@ export const ChatView: React.FC = () => {
     setInspectedProfile,
     setMonetizationOpen,
     showToast,
+    pendingChatSwitch,
+    requestOpenChat,
+    confirmChatSwitch,
+    cancelChatSwitch,
   } = useApp();
 
   const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
 
   const [inputText, setInputText] = useState<string>('');
   const [showOptionsMenu, setShowOptionsMenu] = useState<boolean>(false);
-  const [activeCallType, setActiveCallType] = useState<'audio' | 'video' | null>(null);
-  const [callDuration, setCallDuration] = useState<number>(0);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -66,41 +63,19 @@ export const ChatView: React.FC = () => {
     scrollToBottom();
   }, [currentMessages, isPartnerTyping]);
 
-  // Call duration counter
-  useEffect(() => {
-    if (!activeCallType) {
-      setCallDuration(0);
-      return;
-    }
-    const timer = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [activeCallType]);
-
   const handleSend = () => {
     if (!activeChatMatchId || !inputText.trim()) return;
-    sendMessage(activeChatMatchId, inputText.trim());
-    setInputText('');
-  };
-
-  const formatCallTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const handleInitiateCall = (type: 'audio' | 'video') => {
     if (isFreeTier) {
       setMonetizationOpen(true);
-      showToast(
-        'VIP Calling Feature',
-        'Voice and video calls are reserved for VIP members. Upgrade to connect directly with your matches!',
-        'info'
-      );
+      showToast('Subscription Required', 'You must be on an active paid plan to send messages.', 'info');
       return;
     }
-    setActiveCallType(type);
+    if (activeChatMatch?.chatStatus === 'closed') {
+      showToast('Chat Ended', 'This previous conversation has ended. Start a new match chat to connect.', 'info');
+      return;
+    }
+    sendMessage(activeChatMatchId, inputText.trim());
+    setInputText('');
   };
 
   const conversationStarters = [
@@ -179,10 +154,12 @@ export const ChatView: React.FC = () => {
         <div className="flex-1 overflow-y-auto divide-y divide-white/[0.06]">
           {(matches || []).map((match) => {
             const isSelected = match.id === activeChatMatchId;
+            const isClosed = match.chatStatus === 'closed';
+            const isActiveChat = match.chatStatus === 'active';
             return (
               <div
                 key={match.id}
-                onClick={() => setActiveChatMatchId(match.id)}
+                onClick={() => requestOpenChat(match.id)}
                 className={`flex items-center gap-3 p-3.5 cursor-pointer transition-colors ${
                   isSelected
                     ? 'bg-gradient-to-r from-pink-500/15 via-purple-900/30 to-transparent border-l-4 border-pink-500'
@@ -194,28 +171,42 @@ export const ChatView: React.FC = () => {
                     src={match.user.photos[0]}
                     alt={match.user.name}
                     referrerPolicy="no-referrer"
-                    className="w-12 h-12 rounded-full object-cover border border-purple-700/50"
+                    className={`w-12 h-12 rounded-full object-cover border ${
+                      isClosed ? 'border-zinc-600 opacity-60' : 'border-purple-700/50'
+                    }`}
                   />
-                  {match.user.online && (
+                  {match.user.online && !isClosed && (
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0e071a]" />
                   )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-display font-bold text-sm text-white truncate">
-                      {match.user.name}
-                    </h4>
+                    <div className="flex items-center gap-1.5 truncate">
+                      <h4 className="font-display font-bold text-sm text-white truncate">
+                        {match.user.name}
+                      </h4>
+                      {isClosed && (
+                        <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 text-[9px] font-mono font-semibold">
+                          Ended
+                        </span>
+                      )}
+                      {isActiveChat && (
+                        <span className="px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 text-[9px] font-semibold border border-pink-500/30">
+                          Active
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-purple-400/80">
                       {match.lastMessageTime || match.matchedAt}
                     </span>
                   </div>
-                  <p className="text-xs text-purple-200/70 truncate mt-0.5">
+                  <p className={`text-xs truncate mt-0.5 ${isClosed ? 'text-zinc-500 italic' : 'text-purple-200/70'}`}>
                     {match.lastMessage || 'Connected! Say hello ✨'}
                   </p>
                 </div>
 
-                {match.unreadCount > 0 && (
+                {match.unreadCount > 0 && !isClosed && (
                   <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center">
                     {match.unreadCount}
                   </span>
@@ -277,24 +268,8 @@ export const ChatView: React.FC = () => {
               </div>
             </div>
 
-            {/* Top Action Icons: Audio Call, Video Call, Date Check-in, Menu */}
+            {/* Top Action Icons: Date Check-in, Menu */}
             <div className="flex items-center gap-1 sm:gap-2">
-              <button
-                onClick={() => handleInitiateCall('audio')}
-                className="p-2 rounded-full bg-purple-950/40 hover:bg-white/[0.08] text-purple-200 hover:text-white border border-white/10 transition-colors"
-                title={isFreeTier ? 'Voice Call (VIP Required)' : 'Voice Call'}
-              >
-                <Phone className="w-4 h-4 text-pink-300" />
-              </button>
-
-              <button
-                onClick={() => handleInitiateCall('video')}
-                className="p-2 rounded-full bg-purple-950/40 hover:bg-white/[0.08] text-purple-200 hover:text-white border border-white/10 transition-colors"
-                title={isFreeTier ? 'Video Call (VIP Required)' : 'Video Call'}
-              >
-                <Video className="w-4 h-4 text-purple-300" />
-              </button>
-
               <button
                 onClick={() => setSafetyModalOpen(true)}
                 className="p-2 rounded-full bg-emerald-950/30 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/30 transition-colors"
@@ -482,55 +457,73 @@ export const ChatView: React.FC = () => {
 
               {/* Message Input Bar */}
               <div className="p-3 sm:p-4 bg-[#0e061d]/85 backdrop-blur-xl border-t border-white/[0.08]">
-                {hasContactInfo(inputText) && (
-                  <div className="mb-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2 animate-fadeIn">
-                    <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span>
-                      <strong>Privacy Guard:</strong> Phone numbers and email addresses are automatically hidden from everyone upon sending.
-                    </span>
+              {activeChatMatch.chatStatus === 'closed' ? (
+                <div className="p-4 bg-[#130626]/90 border border-purple-500/20 rounded-2xl flex items-center justify-center gap-3 text-center">
+                  <Archive className="w-5 h-5 text-amber-400 shrink-0" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-white">This conversation has concluded</p>
+                    <p className="text-[11px] text-purple-300/80">
+                      Per the Fiffy Serious &amp; Cheating-Free Dating Policy, each member can only hold one active conversation at a time.
+                    </p>
                   </div>
-                )}
-                <div className="flex items-center gap-2 bg-[#15092a]/80 backdrop-blur-md border border-white/10 rounded-2xl p-1.5 focus-within:border-pink-500/50 transition-colors">
-                  <button
-                    onClick={() =>
-                      sendMessage(
-                        activeChatMatch.id,
-                        'Check out this stunning African art piece from the gallery!',
-                        'https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=400&q=80'
-                      )
-                    }
-                    className="p-2 rounded-xl text-purple-400 hover:text-pink-400 hover:bg-white/[0.08] transition-colors"
-                    title="Send Photo"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                  </button>
-
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder={`Type a spark message to ${activeChatMatch.user.name}...`}
-                    className="flex-1 bg-transparent px-2 text-xs sm:text-sm text-white placeholder:text-purple-400/50 focus:outline-none"
-                  />
-
-                  <button
-                    onClick={handleSend}
-                    disabled={!inputText.trim()}
-                    className={`p-2.5 rounded-xl gradient-fiffy text-white shadow-md transition-all ${
-                      inputText.trim()
-                        ? 'hover:scale-105 active:scale-95 opacity-100 shadow-pink-500/25'
-                        : 'opacity-40 cursor-not-allowed'
-                    }`}
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
                 </div>
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
+              ) : (
+                <>
+                  {hasContactInfo(inputText) && (
+                    <div className="mb-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2 animate-fadeIn">
+                      <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>
+                        <strong>Privacy Guard:</strong> Phone numbers and email addresses are automatically hidden from everyone upon sending.
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 bg-[#15092a]/80 backdrop-blur-md border border-white/10 rounded-2xl p-1.5 focus-within:border-pink-500/50 transition-colors">
+                    <button
+                      onClick={() =>
+                        sendMessage(
+                          activeChatMatch.id,
+                          'Check out this stunning African art piece from the gallery!',
+                          'https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=400&q=80'
+                        )
+                      }
+                      className="p-2 rounded-xl text-purple-400 hover:text-pink-400 hover:bg-white/[0.08] transition-colors"
+                      title="Send Photo"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                      placeholder={
+                        isFreeTier
+                          ? 'Messaging requires VIP upgrade (Click to upgrade)...'
+                          : `Type a spark message to ${activeChatMatch.user.name}...`
+                      }
+                      className="flex-1 bg-transparent px-2 text-xs sm:text-sm text-white placeholder:text-purple-400/50 focus:outline-none"
+                    />
+
+                    <button
+                      onClick={handleSend}
+                      disabled={!inputText.trim()}
+                      className={`p-2.5 rounded-xl gradient-fiffy text-white shadow-md transition-all ${
+                        inputText.trim()
+                          ? 'hover:scale-105 active:scale-95 opacity-100 shadow-pink-500/25'
+                          : 'opacity-40 cursor-not-allowed'
+                      }`}
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    ) : (
         /* Empty selection state on desktop */
         <div className="hidden md:flex flex-1 flex-col items-center justify-center p-8 text-center text-purple-300/80">
           <div className="w-16 h-16 rounded-full bg-[#160a2d]/80 border border-white/10 flex items-center justify-center mb-4 shadow-lg shadow-pink-950/40">
@@ -541,7 +534,7 @@ export const ChatView: React.FC = () => {
           </h3>
           <p className="text-xs text-purple-400/80 max-w-xs mt-1">
             {isFreeTier
-              ? 'Free accounts can only view profiles. Upgrade to Fiffy VIP to start matching, exchanging direct messages, and making audio/video calls!'
+              ? 'Free accounts can only view profiles. Upgrade to Fiffy VIP to start matching and exchanging direct messages!'
               : 'Choose a match from the sidebar to start a real-time encrypted chat.'}
           </p>
           {isFreeTier && (
@@ -556,85 +549,43 @@ export const ChatView: React.FC = () => {
       )}
       </div>
 
-      {/* AUDIO / VIDEO CALL SIMULATION MODAL */}
-      {activeCallType && activeChatMatch && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#120625]/95 backdrop-blur-2xl rounded-3xl border border-pink-500/30 p-6 flex flex-col items-center justify-between h-[520px] shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_40px_rgba(255,42,133,0.15)]">
-            {/* Top header */}
-            <div className="text-center">
-              <span className="text-xs font-bold uppercase tracking-widest text-pink-400">
-                Fiffy Secure {activeCallType === 'video' ? 'Video' : 'Audio'} Call
-              </span>
-              <div className="text-xs text-purple-300 mt-1">{formatCallTime(callDuration)}</div>
+      {/* SINGLE ACTIVE CHAT SWITCH WARNING MODAL (Cheating-Free Guarantee) */}
+      {pendingChatSwitch && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-[#120625]/95 backdrop-blur-2xl rounded-3xl border border-pink-500/40 p-6 flex flex-col shadow-[0_25px_60px_rgba(0,0,0,0.9),0_0_40px_rgba(255,42,133,0.2)]">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-7 h-7" />
             </div>
 
-            {/* Center avatar or video view */}
-            <div className="relative flex flex-col items-center justify-center">
-              {activeCallType === 'video' && !isVideoOff ? (
-                <div className="relative w-64 h-64 rounded-3xl overflow-hidden border border-purple-500/40 shadow-2xl">
-                  <img
-                    src={activeChatMatch.user.photos[0]}
-                    alt={activeChatMatch.user.name}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                  {/* PiP self view */}
-                  <div className="absolute bottom-2 right-2 w-16 h-20 rounded-xl overflow-hidden border border-white shadow-lg">
-                    <img
-                      src={currentUser.photos[0]}
-                      alt={currentUser.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full p-1 gradient-fiffy animate-pulse">
-                    <img
-                      src={activeChatMatch.user.photos[0]}
-                      alt={activeChatMatch.user.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
+            <h3 className="font-display font-bold text-lg text-white text-center">
+              Start New Chat with {pendingChatSwitch.targetMatch.user.name}?
+            </h3>
 
-              <h4 className="font-display font-bold text-xl text-white mt-4">
-                {activeChatMatch.user.name}
-              </h4>
-              <p className="text-xs text-emerald-400 font-medium">Connected &bull; Encrypted</p>
+            <div className="mt-3 p-3.5 rounded-2xl bg-[#1b0833]/80 border border-white/10 text-xs text-purple-200/90 leading-relaxed space-y-2">
+              <p className="font-semibold text-pink-300 flex items-center gap-1.5">
+                <HeartHandshake className="w-4 h-4" />
+                <span>Cheating-Free &amp; Serious Dating Rule</span>
+              </p>
+              <p>
+                To protect emotional well-being and keep our platform serious and honest, members cannot maintain multiple active chats simultaneously.
+              </p>
+              <p className="text-amber-300 font-medium">
+                Opening this chat will automatically archive and end your active conversation with <span className="underline font-bold">{pendingChatSwitch.previousMatch.user.name}</span>.
+              </p>
             </div>
 
-            {/* Bottom Controls */}
-            <div className="flex items-center gap-4">
+            <div className="mt-6 flex flex-col gap-2.5">
               <button
-                onClick={() => setIsMuted(!isMuted)}
-                className={`p-3.5 rounded-full border transition-colors ${
-                  isMuted ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-white/[0.08] border-white/15 text-white hover:bg-white/[0.15]'
-                }`}
+                onClick={confirmChatSwitch}
+                className="w-full py-3.5 rounded-2xl gradient-fiffy-btn text-white font-bold text-xs shadow-lg shadow-pink-500/25 hover:scale-[1.01] active:scale-95 transition-all"
               >
-                {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                End Chat with {pendingChatSwitch.previousMatch.user.name} &amp; Start with {pendingChatSwitch.targetMatch.user.name}
               </button>
-
-              {activeCallType === 'video' && (
-                <button
-                  onClick={() => setIsVideoOff(!isVideoOff)}
-                  className={`p-3.5 rounded-full border transition-colors ${
-                    isVideoOff ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-white/[0.08] border-white/15 text-white hover:bg-white/[0.15]'
-                  }`}
-                >
-                  {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-                </button>
-              )}
-
               <button
-                onClick={() => setActiveCallType(null)}
-                className="p-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-900/50 hover:scale-105 active:scale-95 transition-transform"
-                title="End Call"
+                onClick={cancelChatSwitch}
+                className="w-full py-3 rounded-2xl bg-white/[0.06] hover:bg-white/10 text-purple-300 hover:text-white font-semibold text-xs border border-white/10 transition-colors"
               >
-                <PhoneOff className="w-6 h-6" />
+                Stay with {pendingChatSwitch.previousMatch.user.name}
               </button>
             </div>
           </div>

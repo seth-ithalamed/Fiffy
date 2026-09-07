@@ -34,15 +34,23 @@ function TabIcon({ icon, label, focused, badge }: { icon: string; label: string;
 }
 
 export default function AppLayout() {
-  const { isLoggedIn, matches } = useApp();
+  const { isLoggedIn, authLoading, matches } = useApp();
   const router = useRouter();
 
   // Guard: if somehow landed here without auth, push to auth
   React.useEffect(() => {
-    if (!isLoggedIn) {
+    if (!authLoading && !isLoggedIn) {
       router.replace('/auth');
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, authLoading]);
+
+  if (authLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#05020a', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: Colors.pink, fontSize: 14, fontWeight: '700' }}>Loading Fiffy's...</Text>
+      </View>
+    );
+  }
 
   const totalUnread = matches.reduce((a, m) => a + (m.unreadCount || 0), 0);
 

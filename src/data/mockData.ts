@@ -8,7 +8,8 @@ import {
   SubscriptionPlan,
   PayFastConfig,
   Testimonial,
-} from '../types';
+  ChildrenStatus,
+} from '../types/index';
 
 export interface CountryOption {
   code: string;
@@ -167,6 +168,7 @@ export const INITIAL_CURRENT_USER: CurrentUser = {
   height: `5'8" (173 cm)`,
   starSign: 'Leo',
   datingGoal: 'Long-term relationship',
+  childrenStatus: 'no_children',
   drinking: 'Socially',
   smoking: 'Never',
   spotifyTopArtist: 'Burna Boy, Tyla, Kabza De Small & Sampa The Great',
@@ -897,3 +899,265 @@ export const PROMPT_QUESTIONS_CATALOG = [
   'Best African city to visit for a weekend...',
   'My favorite dish from home is...',
 ];
+
+export interface DemoAccountConfig {
+  user: CurrentUser;
+  matches: Match[];
+  messages: Record<string, Message[]>;
+}
+
+export const DEMO_ACCOUNTS_CONFIG: Record<string, DemoAccountConfig> = {
+  'lerato.khumalo@fiffys.com': {
+    user: {
+      ...INITIAL_CURRENT_USER,
+      isPremium: true,
+      premiumTier: 'gold',
+      superLikesRemaining: 5,
+      boostsRemaining: 2,
+    },
+    matches: INITIAL_MATCHES,
+    messages: INITIAL_MESSAGES,
+  },
+  'amara.okafor@demo.fiffys.com': {
+    user: {
+      id: 'user-1',
+      name: 'Amara Okafor',
+      dateOfBirth: '1999-11-20',
+      age: 26,
+      gender: 'woman',
+      orientation: 'straight',
+      showMe: 'men',
+      email: 'amara.okafor@demo.fiffys.com',
+      phone: '+234 80 123 4567',
+      contactNumber: '+234 80 123 4567',
+      job: 'Fintech Product Lead & Podcaster',
+      company: 'PayFlow Africa',
+      education: 'University of Lagos',
+      location: 'Victoria Island, Lagos',
+      city: 'Lagos',
+      country: 'Nigeria',
+      countryCode: 'NG',
+      countryFlag: '🇳🇬',
+      preferredCountries: ['Nigeria', 'South Africa', 'Ghana'],
+      distanceKm: 0,
+      bio: "Tech by day, culinary explorer by weekend. Let's argue over who makes the best jollof and catch live jazz at Bogobiri.",
+      photos: [
+        'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=800&q=80',
+      ],
+      interests: ['Fintech', 'Afrobeats', 'Podcasting', 'Seafood Grills', 'Pan-African Tech', 'Fashion'],
+      prompts: [
+        { id: 'p-m1', question: 'My simple pleasures...', answer: 'Fresh coconut water at Landmark Beach and unreleased Asake demos on repeat.' },
+        { id: 'p-m2', question: 'Dating me is like...', answer: 'Having a built-in hype woman who will also critique your pitch deck.' },
+      ],
+      verified: true,
+      online: true,
+      lastActive: 'Active now',
+      height: `5'7" (170 cm)`,
+      starSign: 'Taurus',
+      datingGoal: 'Long-term relationship',
+      childrenStatus: 'want_children',
+      drinking: 'Socially',
+      smoking: 'Never',
+      spotifyTopArtist: 'Wizkid, Tems & Rema',
+      isPremium: true,
+      premiumTier: 'gold',
+      isExempt: false,
+      dailySwipesUsed: 0,
+      boostsRemaining: 2,
+      superLikesRemaining: 5,
+      boostExpiresAt: null,
+      incognito: false,
+      hideAge: false,
+      hideDistance: false,
+      readReceipts: true,
+    },
+    matches: [
+      {
+        id: 'match-amara-1',
+        userId: 'user-2',
+        user: MOCK_PROFILES[1],
+        matchedAt: 'Yesterday',
+        lastMessage: 'Let us grab that coffee in Sandton next week! ☕',
+        lastMessageTime: '1h ago',
+        unreadCount: 1,
+        isSuperMatch: true,
+      },
+      {
+        id: 'match-amara-2',
+        userId: 'user-4',
+        user: MOCK_PROFILES[3],
+        matchedAt: '3 days ago',
+        lastMessage: 'Lagos to Accra is only a 45-minute flight ✈️',
+        lastMessageTime: '1d ago',
+        unreadCount: 0,
+        isSuperMatch: false,
+      },
+    ],
+    messages: {
+      'match-amara-1': [
+        {
+          id: 'msg-a1',
+          matchId: 'match-amara-1',
+          senderId: 'user-2',
+          text: 'Hey Amara! Loved your podcast episode on pan-African fintech 🎙️',
+          timestamp: '11:00 AM',
+          isRead: true,
+        },
+      ],
+      'match-amara-2': [],
+    },
+  },
+  'thabo.ndlovu@demo.fiffys.com': {
+    user: {
+      id: 'user-2',
+      name: 'Thabo Ndlovu',
+      dateOfBirth: '1996-08-14',
+      age: 29,
+      gender: 'man',
+      orientation: 'straight',
+      showMe: 'women',
+      email: 'thabo.ndlovu@demo.fiffys.com',
+      phone: '+27 83 999 1122',
+      contactNumber: '+27 83 999 1122',
+      job: 'Renewable Energy Engineer & Cyclist',
+      company: 'SolAfrica Dynamics',
+      education: 'University of Cape Town',
+      location: 'Sandton, Johannesburg',
+      city: 'Johannesburg',
+      country: 'South Africa',
+      countryCode: 'ZA',
+      countryFlag: '🇿🇦',
+      preferredCountries: ['South Africa', 'Zimbabwe', 'Kenya'],
+      distanceKm: 0,
+      bio: 'Building solar microgrids across Southern Africa. Passionate about sunrise trail cycling, Sunday braais, and vintage vinyl.',
+      photos: [
+        'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=800&q=80',
+      ],
+      interests: ['Solar Energy', 'Trail Cycling', 'Braai Master', 'Amapiano', 'Hiking Drakensberg', 'Espresso'],
+      prompts: [
+        { id: 'p-j1', question: 'I get overly competitive about...', answer: 'Who braais the tenderest lamb chops and wins family board game nights.' },
+      ],
+      verified: true,
+      online: true,
+      lastActive: 'Active now',
+      height: `6'2" (188 cm)`,
+      starSign: 'Capricorn',
+      datingGoal: 'Marriage',
+      childrenStatus: 'no_children',
+      drinking: 'Socially',
+      smoking: 'Never',
+      spotifyTopArtist: 'Kelvin Momo, Sun-El Musician & Ami Faku',
+      isPremium: true,
+      premiumTier: 'gold',
+      isExempt: false,
+      dailySwipesUsed: 0,
+      boostsRemaining: 3,
+      superLikesRemaining: 5,
+      boostExpiresAt: null,
+      incognito: false,
+      hideAge: false,
+      hideDistance: false,
+      readReceipts: true,
+    },
+    matches: [
+      {
+        id: 'match-thabo-1',
+        userId: 'user-1',
+        user: MOCK_PROFILES[0],
+        matchedAt: 'Yesterday',
+        lastMessage: 'Let us grab that coffee in Sandton next week! ☕',
+        lastMessageTime: '1h ago',
+        unreadCount: 0,
+        isSuperMatch: false,
+      },
+    ],
+    messages: {
+      'match-thabo-1': [],
+    },
+  },
+  'kwame.mensah@demo.fiffys.com': {
+    user: {
+      id: 'user-4',
+      name: 'Kwame Mensah',
+      dateOfBirth: '1997-04-10',
+      age: 28,
+      gender: 'man',
+      orientation: 'straight',
+      showMe: 'women',
+      email: 'kwame.mensah@demo.fiffys.com',
+      phone: '+233 24 555 7890',
+      contactNumber: '+233 24 555 7890',
+      job: 'Architect & Heritage Restorer',
+      company: 'Studio Akan Accra',
+      education: 'KNUST Kumasi',
+      location: 'Airport Residential, Accra',
+      city: 'Accra',
+      country: 'Ghana',
+      countryCode: 'GH',
+      countryFlag: '🇬🇭',
+      preferredCountries: ['Ghana', 'Nigeria', 'South Africa'],
+      distanceKm: 0,
+      bio: 'Designing modern sustainable homes inspired by traditional West African earthen architecture. Weekend surfer at Busua.',
+      photos: [
+        'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80',
+      ],
+      interests: ['Architecture', 'Surfing', 'Highlife Music', 'Fine Dining', 'Sailing'],
+      prompts: [
+        { id: 'p-k1', question: 'My most controversial opinion...', answer: 'Ghanaian jollof has the smokiness that cannot be matched anywhere else on the continent!' },
+      ],
+      verified: true,
+      online: true,
+      lastActive: 'Active now',
+      height: `6'1" (185 cm)`,
+      starSign: 'Aries',
+      datingGoal: 'Long-term relationship',
+      childrenStatus: 'want_children',
+      drinking: 'Socially',
+      smoking: 'Never',
+      spotifyTopArtist: 'King Promise, Black Sherif, Kidi',
+      isPremium: true,
+      premiumTier: 'gold',
+      isExempt: false,
+      dailySwipesUsed: 0,
+      boostsRemaining: 2,
+      superLikesRemaining: 5,
+      boostExpiresAt: null,
+      incognito: false,
+      hideAge: false,
+      hideDistance: false,
+      readReceipts: true,
+    },
+    matches: [
+      {
+        id: 'match-kwame-1',
+        userId: 'user-1',
+        user: MOCK_PROFILES[0],
+        matchedAt: '3 days ago',
+        lastMessage: 'Lagos to Accra is only a 45-minute flight ✈️',
+        lastMessageTime: '1d ago',
+        unreadCount: 0,
+        isSuperMatch: false,
+      },
+    ],
+    messages: {
+      'match-kwame-1': [],
+    },
+  },
+};
+
+export const getDemoAccount = (identifier: string): DemoAccountConfig | null => {
+  const clean = identifier.trim().toLowerCase();
+  if (DEMO_ACCOUNTS_CONFIG[clean]) {
+    return DEMO_ACCOUNTS_CONFIG[clean];
+  }
+  if (clean.includes('lerato')) return DEMO_ACCOUNTS_CONFIG['lerato.khumalo@fiffys.com'];
+  if (clean.includes('amara')) return DEMO_ACCOUNTS_CONFIG['amara.okafor@demo.fiffys.com'];
+  if (clean.includes('thabo')) return DEMO_ACCOUNTS_CONFIG['thabo.ndlovu@demo.fiffys.com'];
+  if (clean.includes('kwame')) return DEMO_ACCOUNTS_CONFIG['kwame.mensah@demo.fiffys.com'];
+  return null;
+};

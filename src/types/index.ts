@@ -4,6 +4,23 @@ export type SexualOrientation = 'straight' | 'gay' | 'lesbian' | 'bisexual' | 'p
 
 export type ShowMePreference = 'everyone' | 'women' | 'men' | 'non-binary';
 
+export type ChildrenStatus =
+  | 'no_children'
+  | 'have_children_living'
+  | 'have_children_not_living'
+  | 'want_children'
+  | 'not_want_children'
+  | 'prefer_not_to_say';
+
+export const CHILDREN_STATUS_CONFIG: { value: ChildrenStatus; label: string; icon: string }[] = [
+  { value: 'no_children', label: 'No children', icon: '👶' },
+  { value: 'want_children', label: 'Wants children in future', icon: '🍼' },
+  { value: 'have_children_living', label: 'Has children (living with me)', icon: '🏡' },
+  { value: 'have_children_not_living', label: 'Has children (not living with me)', icon: '🎈' },
+  { value: 'not_want_children', label: 'Does not want children', icon: '🚫' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say', icon: '🔒' },
+];
+
 export interface PromptAnswer {
   id: string;
   question: string;
@@ -41,6 +58,7 @@ export interface UserProfile {
   smoking?: string;
   datingGoal: 'Long-term relationship' | 'Casual dating' | 'Marriage' | 'New friends' | 'Still figuring it out';
   spotifyTopArtist?: string;
+  childrenStatus?: ChildrenStatus;
   superLikedMe?: boolean;
   likedMe?: boolean;
   dateOfBirth?: string;
@@ -76,6 +94,8 @@ export interface Match {
   lastMessageTime?: string;
   unreadCount: number;
   isSuperMatch?: boolean;
+  chatStatus?: 'active' | 'closed';
+  closedReason?: string;
 }
 
 export interface Message {

@@ -31,7 +31,8 @@ interface AppContextType {
   authLoading: boolean;
   loginUser: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   signupUser: (userData: any) => Promise<{ success: boolean; error?: string }>;
-  logoutUser: () => void;
+  logoutUser: () => Promise<void>;
+  switchDemoAccount: (identifier: string) => Promise<{ success: boolean; error?: string }>;
 
   // Navigation tab
   inAppTab: InAppTab;
@@ -72,6 +73,14 @@ interface AppContextType {
   unmatchUser: (matchId: string) => void;
   blockUser: (userId: string) => void;
   reportUser: (userId: string, reason: string, details: string) => void;
+  pendingChatSwitch: { targetMatch: Match; previousMatch: Match } | null;
+  requestOpenChat: (targetMatchId: string) => void;
+  confirmChatSwitch: () => void;
+  cancelChatSwitch: () => void;
+
+  // Identity Verification
+  isVerificationModalOpen: boolean;
+  setIsVerificationModalOpen: (open: boolean) => void;
 
   // Monetization
   subscriptionPlans: SubscriptionPlan[];
@@ -142,6 +151,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [activeChatMatchId, setActiveChatMatchId] = useState<string | null>('match-1');
   const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [pendingChatSwitch, setPendingChatSwitch] = useState<{
+    targetMatch: Match;
+    previousMatch: Match;
+  } | null>(null);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
 
   const [filters, setFilters] = useState<DiscoveryFilters>(DEFAULT_FILTERS);
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(
@@ -158,19 +172,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // ── Hydrate auth from storage on mount ──────────────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem('fiffy_auth_user').then((raw) => {
-      if (raw) {
-        try {
+    const hydrate = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('fiffy_auth_user');
+        if (raw) {
           const saved: AuthUser = JSON.parse(raw);
           setAuthUser(saved);
-          AsyncStorage.getItem('fiffy_current_user').then((rawProf) => {
+          try {
+            const rawProf = await AsyncStorage.getItem('fiffy_current_user');
             if (rawProf) {
-              try {
-                const savedProf: CurrentUser = JSON.parse(rawProf);
-                setCurrentUser(savedProf);
-              } catch {}
+              const savedProf: CurrentUser = JSON.parse(rawProf);
+              setCurrentUser(savedProf);
             } else {
-              // If saved matches a demo account
               const demo = getDemoAccount(saved.email || saved.name || '');
               if (demo) {
                 setCurrentUser(demo.user);
@@ -180,11 +193,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setCurrentUser((prev) => ({ ...prev, ...saved }));
               }
             }
-          });
-        } catch {}
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Auth hydration error:', err);
+      } finally {
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
-    });
+    };
+    hydrate();
 
     // Try to fetch live profiles from the backend with abort timeout
     const controller = new AbortController();
@@ -417,6 +434,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast('Signed Out', 'You have been safely signed out.', 'info');
   };
 
+  const switchDemoAccount = async (identifier: string) => {
+    return loginUser(identifier, 'password123');
+  };
+
   // ── Profile ──────────────────────────────────────────────────────────────────
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {
     setCurrentUser((prev) => {
@@ -513,10 +534,101 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ── Chat ─────────────────────────────────────────────────────────────────────
   const activeChatMatch = matches.find((m) => m.id === activeChatMatchId) ?? null;
 
+  const requestOpenChat = (targetMatchId: string) => {
+    const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
+    if (isFreeTier) {
+      setMonetizationOpen(true);
+      showToast(
+        'Subscription Required',
+        'Direct messaging and chatting requires an active paid plan. Upgrade to unlock conversations!',
+        'info'
+      );
+      return;
+    }
+
+    const targetMatch = matches.find((m) => m.id === targetMatchId);
+    if (!targetMatch) return;
+
+    // Single active chat guard: Check if user already has an active conversation with another match
+    const activeMatch = matches.find(
+      (m) =>
+        m.id !== targetMatchId &&
+        (m.chatStatus === 'active' || (m.id === activeChatMatchId && m.chatStatus !== 'closed'))
+    );
+
+    if (activeMatch && targetMatch.chatStatus !== 'active') {
+      setPendingChatSwitch({ targetMatch, previousMatch: activeMatch });
+      return;
+    }
+
+    // Open chat directly
+    setMatches((prev) =>
+      prev.map((m) =>
+        m.id === targetMatchId
+          ? { ...m, chatStatus: 'active', unreadCount: 0 }
+          : m
+      )
+    );
+    setActiveChatMatchId(targetMatchId);
+    setInAppTab('chat');
+  };
+
+  const confirmChatSwitch = () => {
+    if (!pendingChatSwitch) return;
+    const { targetMatch, previousMatch } = pendingChatSwitch;
+
+    // Conclude previous chat
+    const closeNotice: Message = {
+      id: `msg-closed-${Date.now()}`,
+      matchId: previousMatch.id,
+      senderId: 'system',
+      text: '🔒 [System Notice] This conversation was automatically ended and archived because a new match chat was opened. Fiffy is dedicated to serious, cheating-free dating (1 active chat at a time).',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isRead: true,
+    };
+
+    setMessages((prev) => ({
+      ...prev,
+      [previousMatch.id]: [...(prev[previousMatch.id] || []), closeNotice],
+    }));
+
+    setMatches((prev) =>
+      prev.map((m) => {
+        if (m.id === previousMatch.id) {
+          return { ...m, chatStatus: 'closed', closedReason: 'Switched to a new match chat' };
+        }
+        if (m.id === targetMatch.id) {
+          return { ...m, chatStatus: 'active', unreadCount: 0 };
+        }
+        return m;
+      })
+    );
+
+    setActiveChatMatchId(targetMatch.id);
+    setPendingChatSwitch(null);
+    setInAppTab('chat');
+    showToast(
+      'Active Chat Updated',
+      `Previous chat with ${previousMatch.user.name} ended. You are now chatting with ${targetMatch.user.name}.`,
+      'info'
+    );
+  };
+
+  const cancelChatSwitch = () => {
+    setPendingChatSwitch(null);
+  };
+
   const sendMessage = (matchId: string, text: string, imageUrl?: string) => {
     const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
     if (isFreeTier) {
       setMonetizationOpen(true);
+      showToast('Subscription Required', 'You must be on an active paid plan to send messages.', 'info');
+      return;
+    }
+
+    const target = matches.find((m) => m.id === matchId);
+    if (target?.chatStatus === 'closed') {
+      showToast('Chat Ended', 'This conversation has ended. Start a new match chat to connect.', 'info');
       return;
     }
 
@@ -633,6 +745,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     loginUser,
     signupUser,
     logoutUser,
+    switchDemoAccount,
 
     inAppTab,
     setInAppTab,
@@ -667,6 +780,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     unmatchUser,
     blockUser,
     reportUser,
+    pendingChatSwitch,
+    requestOpenChat,
+    confirmChatSwitch,
+    cancelChatSwitch,
+
+    isVerificationModalOpen,
+    setIsVerificationModalOpen,
 
     subscriptionPlans,
     isMonetizationOpen,

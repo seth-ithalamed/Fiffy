@@ -1,4 +1,4 @@
-import { CurrentUser, UserProfile, Match, Message, SubscriptionPlan } from '../types';
+import { CurrentUser, UserProfile, Match, Message, SubscriptionPlan, ChildrenStatus } from '../types';
 
 export interface CountryOption {
   code: string;
@@ -90,6 +90,7 @@ export const INITIAL_CURRENT_USER: CurrentUser = {
   height: `5'8" (173 cm)`,
   starSign: 'Leo',
   datingGoal: 'Long-term relationship',
+  childrenStatus: 'no_children',
   drinking: 'Socially',
   smoking: 'Never',
   spotifyTopArtist: 'Burna Boy, Tyla, Kabza De Small',

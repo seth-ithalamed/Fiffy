@@ -10,78 +10,6 @@ import { Match, Message } from '../types';
 import { Colors, gradientPink } from '../components/ui/Colors';
 import { GradientButton } from '../components/ui/GradientButton';
 
-// ── Call Modal ──────────────────────────────────────────────────────────────
-function CallModal({
-  type, match, onEnd,
-}: {
-  type: 'audio' | 'video';
-  match: Match;
-  onEnd: () => void;
-}) {
-  const { currentUser } = useApp();
-  const [duration, setDuration] = useState(0);
-  const [muted, setMuted] = useState(false);
-  const [videoOff, setVideoOff] = useState(false);
-
-  useEffect(() => {
-    const id = setInterval(() => setDuration((p) => p + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
-  return (
-    <Modal visible animationType="fade" presentationStyle="fullScreen">
-      <LinearGradient colors={['#120625', '#050208']} style={call.container}>
-        <Text style={call.label}>
-          Fiffy Secure {type === 'video' ? 'Video' : 'Audio'} Call
-        </Text>
-        <Text style={call.timer}>{fmt(duration)}</Text>
-
-        {type === 'video' && !videoOff ? (
-          <View style={call.videoBox}>
-            <Image source={{ uri: match.user.photos[0] }} style={call.videoImg} resizeMode="cover" />
-            <View style={call.pip}>
-              <Image source={{ uri: currentUser.photos[0] }} style={call.pipImg} resizeMode="cover" />
-            </View>
-          </View>
-        ) : (
-          <View style={call.audioBox}>
-            <LinearGradient colors={gradientPink} style={call.audioRing}>
-              <Image source={{ uri: match.user.photos[0] }} style={call.audioAvatar} resizeMode="cover" />
-            </LinearGradient>
-          </View>
-        )}
-
-        <Text style={call.name}>{match.user.name}</Text>
-        <Text style={call.status}>Connected · Encrypted 🔒</Text>
-
-        <View style={call.controls}>
-          <TouchableOpacity
-            style={[call.ctrlBtn, muted && call.ctrlBtnOn]}
-            onPress={() => setMuted(!muted)}
-          >
-            <Text style={call.ctrlIcon}>{muted ? '🔇' : '🎤'}</Text>
-          </TouchableOpacity>
-
-          {type === 'video' && (
-            <TouchableOpacity
-              style={[call.ctrlBtn, videoOff && call.ctrlBtnOn]}
-              onPress={() => setVideoOff(!videoOff)}
-            >
-              <Text style={call.ctrlIcon}>{videoOff ? '📵' : '📹'}</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity style={call.endBtn} onPress={onEnd}>
-            <Text style={{ color: Colors.white, fontSize: 22 }}>📵</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    </Modal>
-  );
-}
-
 // ── Conversation View ───────────────────────────────────────────────────────
 function ConversationView({ match, onBack }: { match: Match; onBack: () => void }) {
   const {
@@ -93,7 +21,6 @@ function ConversationView({ match, onBack }: { match: Match; onBack: () => void 
 
   const [text, setText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [callType, setCallType] = useState<'audio' | 'video' | null>(null);
   const listRef = useRef<FlatList>(null);
 
   const msgs = messages[match.id] ?? [];
@@ -102,17 +29,12 @@ function ConversationView({ match, onBack }: { match: Match; onBack: () => void 
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [msgs, isPartnerTyping]);
 
-  const handleCall = (type: 'audio' | 'video') => {
-    if (isFreeTier) {
-      setMonetizationOpen(true);
-      showToast('VIP Feature', 'Voice & video calls require VIP upgrade.', 'info');
-      return;
-    }
-    setCallType(type);
-  };
-
   const handleSend = () => {
     if (!text.trim()) return;
+    if (match.chatStatus === 'closed') {
+      showToast('Chat Ended', 'This conversation has concluded per the 1 active chat policy.', 'info');
+      return;
+    }
     sendMessage(match.id, text.trim());
     setText('');
   };
@@ -158,18 +80,26 @@ function ConversationView({ match, onBack }: { match: Match; onBack: () => void 
             {match.user.online && <View style={cv.onlineDot} />}
           </View>
           <View>
-            <Text style={cv.headerName}>{match.user.name}, {match.user.age}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={cv.headerName}>{match.user.name}, {match.user.age}</Text>
+              {match.chatStatus === 'closed' ? (
+                <View style={cv.closedBadge}>
+                  <Text style={cv.closedBadgeText}>Concluded</Text>
+                </View>
+              ) : (
+                <View style={cv.activeBadge}>
+                  <Text style={cv.activeBadgeText}>Active Chat</Text>
+                </View>
+              )}
+            </View>
             <Text style={cv.headerStatus}>
               {isPartnerTyping ? '✍ typing...' : match.user.online ? 'Active now' : match.user.lastActive}
             </Text>
           </View>
         </TouchableOpacity>
         <View style={cv.headerActions}>
-          <TouchableOpacity style={cv.iconBtn} onPress={() => handleCall('audio')}>
-            <Text style={cv.iconBtnTxt}>📞</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={cv.iconBtn} onPress={() => handleCall('video')}>
-            <Text style={cv.iconBtnTxt}>📹</Text>
+          <TouchableOpacity style={cv.iconBtn} onPress={() => setSafetyModalOpen(true)}>
+            <Text style={cv.iconBtnTxt}>🛡</Text>
           </TouchableOpacity>
           <TouchableOpacity style={cv.iconBtn} onPress={() => setMenuOpen(!menuOpen)}>
             <Text style={cv.iconBtnTxt}>⋯</Text>
@@ -221,8 +151,15 @@ function ConversationView({ match, onBack }: { match: Match; onBack: () => void 
         }
       />
 
-      {/* Input area */}
-      {isFreeTier ? (
+      {/* Input or Closed Status */}
+      {match.chatStatus === 'closed' ? (
+        <View style={cv.concludedBar}>
+          <Text style={cv.concludedTitle}>🔒 Conversation Concluded</Text>
+          <Text style={cv.concludedSub}>
+            Per Fiffy's serious &amp; cheating-free dating guarantee, members can only maintain one active chat at a time.
+          </Text>
+        </View>
+      ) : isFreeTier ? (
         <View style={cv.freeLock}>
           <Text style={cv.freeLockTitle}>💬 Messaging Requires VIP</Text>
           <Text style={cv.freeLockSub}>Upgrade to send messages to {match.user.name}</Text>
@@ -267,17 +204,24 @@ function ConversationView({ match, onBack }: { match: Match; onBack: () => void 
           </View>
         </KeyboardAvoidingView>
       )}
-
-      {callType && (
-        <CallModal type={callType} match={match} onEnd={() => setCallType(null)} />
-      )}
     </View>
   );
 }
 
 // ── Main Chat Screen ────────────────────────────────────────────────────────
 export default function ChatScreen() {
-  const { matches, activeChatMatchId, setActiveChatMatchId, activeChatMatch, currentUser, setMonetizationOpen } = useApp();
+  const {
+    matches,
+    activeChatMatchId,
+    setActiveChatMatchId,
+    activeChatMatch,
+    currentUser,
+    setMonetizationOpen,
+    requestOpenChat,
+    pendingChatSwitch,
+    confirmChatSwitch,
+    cancelChatSwitch,
+  } = useApp();
   const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
 
   if (activeChatMatchId && activeChatMatch) {
@@ -286,6 +230,45 @@ export default function ChatScreen() {
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <ConversationView match={activeChatMatch} onBack={() => setActiveChatMatchId(null)} />
         </SafeAreaView>
+
+        {/* Single Active Chat Switch Modal inside active conversation */}
+        {pendingChatSwitch && (
+          <Modal transparent animationType="fade" visible>
+            <View style={modalStyle.overlay}>
+              <View style={modalStyle.card}>
+                <View style={modalStyle.iconWrap}>
+                  <Text style={{ fontSize: 26 }}>⚠️</Text>
+                </View>
+                <Text style={modalStyle.title}>
+                  Start Chat with {pendingChatSwitch.targetMatch.user.name}?
+                </Text>
+                <Text style={modalStyle.body}>
+                  To protect emotional well-being and prevent cheating, Fiffy allows only 1 active conversation at a time.
+                </Text>
+                <View style={modalStyle.warnBox}>
+                  <Text style={modalStyle.warnText}>
+                    Opening this chat will automatically conclude your active chat with{' '}
+                    <Text style={{ fontWeight: '800', color: Colors.white }}>
+                      {pendingChatSwitch.previousMatch.user.name}
+                    </Text>.
+                  </Text>
+                </View>
+                <TouchableOpacity style={modalStyle.confirmBtn} onPress={confirmChatSwitch}>
+                  <LinearGradient colors={gradientPink} style={modalStyle.confirmBtnGrad}>
+                    <Text style={modalStyle.confirmBtnText}>
+                      Switch to {pendingChatSwitch.targetMatch.user.name}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity style={modalStyle.cancelBtn} onPress={cancelChatSwitch}>
+                  <Text style={modalStyle.cancelBtnText}>
+                    Stay with {pendingChatSwitch.previousMatch.user.name}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
       </LinearGradient>
     );
   }
@@ -307,7 +290,7 @@ export default function ChatScreen() {
 
         <View style={ch.listHeader}>
           <Text style={ch.listTitle}>Sparks & Messages</Text>
-          <Text style={ch.listSub}>{matches.length} active connections</Text>
+          <Text style={ch.listSub}>{matches.length} connections (1 active conversation)</Text>
         </View>
 
         {/* New matches strip */}
@@ -322,7 +305,7 @@ export default function ChatScreen() {
             <TouchableOpacity
               key={m.id}
               style={ch.stripItem}
-              onPress={() => setActiveChatMatchId(m.id)}
+              onPress={() => requestOpenChat(m.id)}
             >
               <View style={ch.stripAvatarWrap}>
                 <Image source={{ uri: m.user.photos[0] }} style={ch.stripAvatar} />
@@ -338,32 +321,49 @@ export default function ChatScreen() {
           data={matches}
           keyExtractor={(m) => m.id}
           contentContainerStyle={{ paddingBottom: 20 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[ch.convoRow, activeChatMatchId === item.id && ch.convoRowActive]}
-              onPress={() => setActiveChatMatchId(item.id)}
-              activeOpacity={0.75}
-            >
-              <View style={{ position: 'relative' }}>
-                <Image source={{ uri: item.user.photos[0] }} style={ch.convoAvatar} />
-                {item.user.online && <View style={ch.convoOnline} />}
-              </View>
-              <View style={ch.convoInfo}>
-                <View style={ch.convoInfoTop}>
-                  <Text style={ch.convoName}>{item.user.name}</Text>
-                  <Text style={ch.convoTime}>{item.lastMessageTime || item.matchedAt}</Text>
+          renderItem={({ item }) => {
+            const isActive = item.chatStatus === 'active' || (item.id === activeChatMatchId && item.chatStatus !== 'closed');
+            const isClosed = item.chatStatus === 'closed';
+
+            return (
+              <TouchableOpacity
+                style={[ch.convoRow, activeChatMatchId === item.id && ch.convoRowActive]}
+                onPress={() => requestOpenChat(item.id)}
+                activeOpacity={0.75}
+              >
+                <View style={{ position: 'relative' }}>
+                  <Image source={{ uri: item.user.photos[0] }} style={ch.convoAvatar} />
+                  {item.user.online && <View style={ch.convoOnline} />}
                 </View>
-                <Text style={ch.convoMsg} numberOfLines={1}>
-                  {item.lastMessage || 'Connected! Say hello ✨'}
-                </Text>
-              </View>
-              {item.unreadCount > 0 && (
-                <LinearGradient colors={gradientPink} style={ch.unreadBadge}>
-                  <Text style={ch.unreadText}>{item.unreadCount}</Text>
-                </LinearGradient>
-              )}
-            </TouchableOpacity>
-          )}
+                <View style={ch.convoInfo}>
+                  <View style={ch.convoInfoTop}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={ch.convoName}>{item.user.name}</Text>
+                      {isActive && (
+                        <View style={ch.statusBadgeActive}>
+                          <Text style={ch.statusBadgeActiveTxt}>Active</Text>
+                        </View>
+                      )}
+                      {isClosed && (
+                        <View style={ch.statusBadgeClosed}>
+                          <Text style={ch.statusBadgeClosedTxt}>Ended</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={ch.convoTime}>{item.lastMessageTime || item.matchedAt}</Text>
+                  </View>
+                  <Text style={ch.convoMsg} numberOfLines={1}>
+                    {item.lastMessage || 'Connected! Say hello ✨'}
+                  </Text>
+                </View>
+                {item.unreadCount > 0 && (
+                  <LinearGradient colors={gradientPink} style={ch.unreadBadge}>
+                    <Text style={ch.unreadText}>{item.unreadCount}</Text>
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <View style={ch.empty}>
               <Text style={ch.emptyIcon}>✨</Text>
@@ -373,6 +373,45 @@ export default function ChatScreen() {
           }
         />
       </SafeAreaView>
+
+      {/* Single Active Chat Switch Modal in list view */}
+      {pendingChatSwitch && (
+        <Modal transparent animationType="fade" visible>
+          <View style={modalStyle.overlay}>
+            <View style={modalStyle.card}>
+              <View style={modalStyle.iconWrap}>
+                <Text style={{ fontSize: 26 }}>⚠️</Text>
+              </View>
+              <Text style={modalStyle.title}>
+                Start Chat with {pendingChatSwitch.targetMatch.user.name}?
+              </Text>
+              <Text style={modalStyle.body}>
+                To protect emotional well-being and maintain serious dating, Fiffy allows only 1 active conversation at a time.
+              </Text>
+              <View style={modalStyle.warnBox}>
+                <Text style={modalStyle.warnText}>
+                  Opening this chat will automatically conclude your active conversation with{' '}
+                  <Text style={{ fontWeight: '800', color: Colors.white }}>
+                    {pendingChatSwitch.previousMatch.user.name}
+                  </Text>.
+                </Text>
+              </View>
+              <TouchableOpacity style={modalStyle.confirmBtn} onPress={confirmChatSwitch}>
+                <LinearGradient colors={gradientPink} style={modalStyle.confirmBtnGrad}>
+                  <Text style={modalStyle.confirmBtnText}>
+                    Switch to {pendingChatSwitch.targetMatch.user.name}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity style={modalStyle.cancelBtn} onPress={cancelChatSwitch}>
+                <Text style={modalStyle.cancelBtnText}>
+                  Stay with {pendingChatSwitch.previousMatch.user.name}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </LinearGradient>
   );
 }
@@ -406,6 +445,10 @@ const ch = StyleSheet.create({
   convoInfo: { flex: 1 },
   convoInfoTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   convoName: { color: Colors.white, fontSize: 14, fontWeight: '800' },
+  statusBadgeActive: { backgroundColor: 'rgba(16,185,129,0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)' },
+  statusBadgeActiveTxt: { color: Colors.emerald, fontSize: 9, fontWeight: '700' },
+  statusBadgeClosed: { backgroundColor: 'rgba(148,163,184,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(148,163,184,0.3)' },
+  statusBadgeClosedTxt: { color: '#94a3b8', fontSize: 9, fontWeight: '700' },
   convoTime: { color: Colors.purpleDim, fontSize: 10 },
   convoMsg: { color: Colors.purpleText, fontSize: 12, marginTop: 3 },
   unreadBadge: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -431,6 +474,10 @@ const cv = StyleSheet.create({
   onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.emerald, borderWidth: 1.5, borderColor: '#080210' },
   headerName: { color: Colors.white, fontSize: 14, fontWeight: '800' },
   headerStatus: { color: Colors.purpleDim, fontSize: 11 },
+  activeBadge: { backgroundColor: 'rgba(16,185,129,0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)' },
+  activeBadgeText: { color: Colors.emerald, fontSize: 9, fontWeight: '700' },
+  closedBadge: { backgroundColor: 'rgba(148,163,184,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(148,163,184,0.3)' },
+  closedBadgeText: { color: '#94a3b8', fontSize: 9, fontWeight: '700' },
   headerActions: { flexDirection: 'row', gap: 4 },
   iconBtn: {
     width: 34, height: 34, borderRadius: 17,
@@ -472,6 +519,12 @@ const cv = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border, marginTop: 4,
   },
   typingDots: { color: Colors.pinkLight, fontSize: 16, letterSpacing: 2 },
+  concludedBar: {
+    padding: 18, backgroundColor: 'rgba(20,8,40,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(168,85,247,0.3)',
+    alignItems: 'center',
+  },
+  concludedTitle: { color: '#f59e0b', fontSize: 13, fontWeight: '800', marginBottom: 4 },
+  concludedSub: { color: Colors.purpleDim, fontSize: 11, textAlign: 'center', lineHeight: 16, paddingHorizontal: 16 },
   freeLock: {
     padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(236,72,153,0.25)',
     backgroundColor: 'rgba(14,6,29,0.95)', alignItems: 'center',
@@ -499,30 +552,29 @@ const cv = StyleSheet.create({
   sendIcon: { color: Colors.white, fontSize: 16 },
 });
 
-const call = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingVertical: 60, paddingHorizontal: 24 },
-  label: { color: Colors.pinkLight, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  timer: { color: Colors.purpleText, fontSize: 14 },
-  videoBox: { width: 280, height: 280, borderRadius: 28, overflow: 'hidden', position: 'relative' },
-  videoImg: { width: '100%', height: '100%' },
-  pip: { position: 'absolute', bottom: 10, right: 10, width: 70, height: 88, borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: Colors.white },
-  pipImg: { width: '100%', height: '100%' },
-  audioBox: { alignItems: 'center' },
-  audioRing: { width: 160, height: 160, borderRadius: 80, padding: 6, alignItems: 'center', justifyContent: 'center' },
-  audioAvatar: { width: 148, height: 148, borderRadius: 74 },
-  name: { color: Colors.white, fontSize: 26, fontWeight: '900', marginTop: 12 },
-  status: { color: Colors.emerald, fontSize: 13, fontWeight: '600', marginTop: 4 },
-  controls: { flexDirection: 'row', gap: 20, alignItems: 'center' },
-  ctrlBtn: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
+const modalStyle = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 24,
   },
-  ctrlBtnOn: { backgroundColor: 'rgba(244,63,94,0.25)', borderColor: Colors.rose },
-  ctrlIcon: { fontSize: 22 },
-  endBtn: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: Colors.rose, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.rose, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 10, elevation: 8,
+  card: {
+    width: '100%', maxWidth: 360, backgroundColor: '#140628', borderRadius: 24,
+    borderWidth: 1, borderColor: 'rgba(236,72,153,0.4)', padding: 20, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.8, shadowRadius: 20, elevation: 15,
   },
+  iconWrap: {
+    width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(245,158,11,0.15)',
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', justifyContent: 'center', alignItems: 'center', marginBottom: 12,
+  },
+  title: { color: Colors.white, fontSize: 17, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
+  body: { color: Colors.purpleText, fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 12 },
+  warnBox: {
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    padding: 12, marginBottom: 16, width: '100%',
+  },
+  warnText: { color: '#fcd34d', fontSize: 11, textAlign: 'center', lineHeight: 16 },
+  confirmBtn: { width: '100%', borderRadius: 14, overflow: 'hidden', marginBottom: 8 },
+  confirmBtnGrad: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  confirmBtnText: { color: Colors.white, fontSize: 13, fontWeight: '800' },
+  cancelBtn: { width: '100%', paddingVertical: 11, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' },
+  cancelBtnText: { color: Colors.purpleDim, fontSize: 12, fontWeight: '600' },
 });

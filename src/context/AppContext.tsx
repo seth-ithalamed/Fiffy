@@ -27,6 +27,7 @@ import {
   INITIAL_ADMIN_SETTINGS,
   AFRICAN_COUNTRIES,
   INITIAL_TESTIMONIALS,
+  getDemoAccount,
 } from '../data/mockData';
 import { hasContactInfo, maskContactInfo } from '../lib/privacy';
 import { apiEndpoint } from '../lib/api';
@@ -104,6 +105,14 @@ interface AppContextType {
   unmatchUser: (matchId: string) => void;
   blockUser: (userId: string) => void;
   reportUser: (userId: string, reason: string, details: string) => void;
+  pendingChatSwitch: { targetMatch: Match; previousMatch: Match } | null;
+  requestOpenChat: (targetMatchId: string) => void;
+  confirmChatSwitch: () => void;
+  cancelChatSwitch: () => void;
+
+  // Identity Verification
+  isVerificationModalOpen: boolean;
+  setIsVerificationModalOpen: (open: boolean) => void;
 
   // Safety Modal
   isSafetyModalOpen: boolean;
@@ -147,7 +156,7 @@ interface AppContextType {
   // Toast notifications
   toasts: ToastItem[];
   dismissToast: (id: string) => void;
-  showToast: (title: string, message: string, type?: 'info' | 'match' | 'boost') => void;
+  showToast: (title: string, message: string, type?: 'info' | 'match' | 'boost' | 'success' | 'error') => void;
 
   // Detailed inspect profile modal
   inspectedProfile: UserProfile | null;
@@ -235,6 +244,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [activeChatMatchId, setActiveChatMatchId] = useState<string | null>('match-1');
   const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [isPartnerTyping, setIsPartnerTyping] = useState<boolean>(false);
+  const [pendingChatSwitch, setPendingChatSwitch] = useState<{
+    targetMatch: Match;
+    previousMatch: Match;
+  } | null>(null);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState<boolean>(false);
 
   // Subscriptions & PayFast
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(DEFAULT_SUBSCRIPTION_PLANS);
@@ -291,12 +305,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const showToast = (title: string, message: string, type: 'info' | 'match' | 'boost' = 'info') => {
+  const showToast = (title: string, message: string, type: 'info' | 'match' | 'boost' | 'success' | 'error' = 'info') => {
     const newToast: ToastItem = {
       id: `toast-${Date.now()}-${Math.random()}`,
       title,
       description: message,
-      type: type === 'match' ? 'success' : type === 'boost' ? 'success' : 'info',
+      type: type === 'error' ? 'error' : (type === 'match' || type === 'boost' || type === 'success') ? 'success' : 'info',
     };
     setToasts((prev) => [newToast, ...prev.slice(0, 4)]);
   };
@@ -444,6 +458,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loginUser = async (identifier: string, pass: string) => {
+    // 1. Instant check for Demo accounts (works 0ms latency)
+    const demoCfg = getDemoAccount(identifier);
+    if (demoCfg) {
+      const demoAuthUser: AuthUser = {
+        id: demoCfg.user.id,
+        name: demoCfg.user.name,
+        email: demoCfg.user.email || identifier,
+        phone: demoCfg.user.phone,
+        role: 'user',
+        token: `demo-token-${demoCfg.user.id}`,
+      };
+      setAuthUser(demoAuthUser);
+      setCurrentUser(demoCfg.user);
+      setMatches(demoCfg.matches);
+      setMessages(demoCfg.messages);
+      setActiveChatMatchId(demoCfg.matches[0]?.id || null);
+      setDeckProfiles(MOCK_PROFILES.filter((p) => p.id !== demoCfg.user.id && p.name !== demoCfg.user.name));
+      setCurrentCardIndex(0);
+      localStorage.setItem('fiffy_auth_user', JSON.stringify(demoAuthUser));
+      setActiveSurfaceState('web-app');
+      setInAppTab('discover');
+      closeAuthModal();
+      showToast('Welcome!', `Logged in instantly as ${demoCfg.user.name}.`, 'success');
+      // Background sync to backend
+      fetchApi('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier.trim(), password: pass }),
+      }).catch(() => {});
+      return { success: true, user: demoAuthUser };
+    }
+
     try {
       const res = await fetchApi('/api/auth/login', {
         method: 'POST',
@@ -665,8 +711,115 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return matches.find((m) => m.id === activeChatMatchId) || null;
   }, [matches, activeChatMatchId]);
 
+  const requestOpenChat = (targetMatchId: string) => {
+    // 1. Subscription check: Paid plan required to chat
+    const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
+    if (isFreeTier) {
+      setMonetizationOpen(true);
+      showToast(
+        'Paid Subscription Required to Chat 🔒',
+        'Starting and continuing conversations is reserved exclusively for paid members. Upgrade now to connect!',
+        'info'
+      );
+      return;
+    }
+
+    if (activeChatMatchId === targetMatchId) {
+      return;
+    }
+
+    const targetMatch = matches.find((m) => m.id === targetMatchId);
+    if (!targetMatch) return;
+
+    // 2. Single Active Chat Policy:
+    // If user has an active chat with another match, warn them before closing the previous one
+    const previousMatch = matches.find(
+      (m) => m.id === activeChatMatchId && m.id !== targetMatchId && m.chatStatus !== 'closed'
+    );
+
+    if (previousMatch) {
+      const prevMsgs = messages[previousMatch.id] || [];
+      if (prevMsgs.length > 0 || previousMatch.chatStatus === 'active') {
+        setPendingChatSwitch({
+          targetMatch,
+          previousMatch,
+        });
+        return;
+      }
+    }
+
+    // Direct switch if no conflicting active chat
+    setActiveChatMatchId(targetMatchId);
+    setMatches((prev) =>
+      prev.map((m) => (m.id === targetMatchId ? { ...m, chatStatus: 'active' } : m))
+    );
+  };
+
+  const confirmChatSwitch = () => {
+    if (!pendingChatSwitch) return;
+    const { targetMatch, previousMatch } = pendingChatSwitch;
+
+    const closeNotice: Message = {
+      id: `sys-${Date.now()}`,
+      matchId: previousMatch.id,
+      senderId: 'system',
+      text: `Chat concluded: Conversation closed under Fiffy’s Single Active Chat serious dating policy.`,
+      timestamp: 'Just now',
+      isRead: true,
+    };
+
+    setMessages((prev) => ({
+      ...prev,
+      [previousMatch.id]: [...(prev[previousMatch.id] || []), closeNotice],
+    }));
+
+    setMatches((prev) =>
+      prev.map((m) => {
+        if (m.id === previousMatch.id) {
+          return {
+            ...m,
+            chatStatus: 'closed',
+            closedReason: `Ended to focus exclusively on ${targetMatch.user.name}`,
+            lastMessage: 'Chat closed (Single focus policy)',
+            lastMessageTime: 'Just now',
+          };
+        }
+        if (m.id === targetMatch.id) {
+          return {
+            ...m,
+            chatStatus: 'active',
+          };
+        }
+        return m;
+      })
+    );
+
+    setActiveChatMatchId(targetMatch.id);
+    setPendingChatSwitch(null);
+
+    showToast(
+      'Exclusive Focus Activated 💬',
+      `Chat with ${previousMatch.user.name} ended. You are now exclusively focused on ${targetMatch.user.name}.`,
+      'info'
+    );
+  };
+
+  const cancelChatSwitch = () => {
+    setPendingChatSwitch(null);
+  };
+
   const sendMessage = (matchId: string, text: string, imageUrl?: string) => {
     if (!text.trim() && !imageUrl) return;
+
+    const currentMatch = matches.find((m) => m.id === matchId);
+    if (currentMatch?.chatStatus === 'closed') {
+      showToast(
+        'Chat Closed',
+        'This conversation has ended under Fiffy’s Single Active Chat policy to focus on another connection.',
+        'error'
+      );
+      return;
+    }
 
     const isFreeTier = !currentUser.isPremium && !currentUser.isExempt;
 
@@ -1171,6 +1324,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         unmatchUser,
         blockUser,
         reportUser,
+        pendingChatSwitch,
+        requestOpenChat,
+        confirmChatSwitch,
+        cancelChatSwitch,
+        isVerificationModalOpen,
+        setIsVerificationModalOpen,
         isSafetyModalOpen,
         setSafetyModalOpen,
         adminSettings,

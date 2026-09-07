@@ -18,8 +18,12 @@ import {
   Ban,
   Share2,
   Lock,
+  Images,
+  Baby,
+  ShieldAlert,
 } from 'lucide-react';
 import { maskContactInfo } from '../../lib/privacy';
+import { CHILDREN_STATUS_CONFIG } from '../../types';
 
 export const ProfileDetailModal: React.FC = () => {
   const {
@@ -36,24 +40,31 @@ export const ProfileDetailModal: React.FC = () => {
 
   const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0);
   const [showReportDialog, setShowReportDialog] = useState<boolean>(false);
-  const [reportReason, setReportReason] = useState<string>('Inappropriate Photos');
+  const [reportReason, setReportReason] = useState<string>('Cheating / Multiple Dating / Playing Games');
   const [reportDetails, setReportDetails] = useState<string>('');
 
   if (!inspectedProfile) return null;
 
+  const totalPhotos = inspectedProfile.photos?.length || 1;
+
   const handleNext = () => {
-    setActivePhotoIdx((prev) => (prev + 1) % inspectedProfile.photos.length);
+    setActivePhotoIdx((prev) => (prev + 1) % totalPhotos);
   };
 
   const handlePrev = () => {
-    setActivePhotoIdx((prev) => (prev - 1 + inspectedProfile.photos.length) % inspectedProfile.photos.length);
+    setActivePhotoIdx((prev) => (prev - 1 + totalPhotos) % totalPhotos);
   };
 
   const submitReport = () => {
     reportUser(inspectedProfile.id, reportReason, reportDetails);
+    showToast('Report Submitted', `Thank you. Our safety team will review ${inspectedProfile.name} promptly.`, 'info');
     setShowReportDialog(false);
     setInspectedProfile(null);
   };
+
+  const childrenInfo = inspectedProfile.childrenStatus
+    ? CHILDREN_STATUS_CONFIG[inspectedProfile.childrenStatus]
+    : CHILDREN_STATUS_CONFIG['prefer_not_to_say'];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -61,55 +72,100 @@ export const ProfileDetailModal: React.FC = () => {
         {/* Close Button Top Right */}
         <button
           onClick={() => setInspectedProfile(null)}
-          className="absolute top-4 right-4 z-30 p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white transition-colors border border-white/10"
+          className="absolute top-4 right-4 z-30 p-2 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white transition-colors border border-white/10 shadow-lg"
+          title="Close profile"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Scrollable Body */}
         <div className="overflow-y-auto flex-1">
-          {/* Photos Header Carousel */}
-          <div className="relative w-full h-[380px] bg-black">
+          {/* Main Photo Hero */}
+          <div className="relative w-full h-[380px] bg-black group">
             <img
               src={inspectedProfile.photos[activePhotoIdx]}
-              alt={inspectedProfile.name}
+              alt={`${inspectedProfile.name} photo ${activePhotoIdx + 1}`}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-opacity duration-300"
             />
 
-            {/* Photo Indicators */}
-            <div className="absolute top-3 left-4 right-14 flex gap-1 z-20">
+            {/* Photo Counter Badge */}
+            <div className="absolute top-3 left-4 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[11px] font-semibold">
+              <Images className="w-3.5 h-3.5 text-pink-400" />
+              <span>Photo {activePhotoIdx + 1} of {totalPhotos}</span>
+              <span className="text-purple-300/60 font-normal">(Max 5)</span>
+            </div>
+
+            {/* Photo Progress Indicators */}
+            <div className="absolute top-11 left-4 right-14 flex gap-1.5 z-20">
               {(inspectedProfile.photos || []).map((_, i) => (
-                <div
+                <button
                   key={i}
-                  className={`h-1 flex-1 rounded-full transition-colors ${
-                    i === activePhotoIdx ? 'bg-white' : 'bg-white/30'
+                  onClick={() => setActivePhotoIdx(i)}
+                  className={`h-1.5 flex-1 rounded-full transition-all cursor-pointer ${
+                    i === activePhotoIdx ? 'bg-pink-500 shadow-sm shadow-pink-500/50' : 'bg-white/30 hover:bg-white/60'
                   }`}
+                  title={`View photo ${i + 1}`}
                 />
               ))}
             </div>
 
             {/* Arrows */}
-            {inspectedProfile.photos.length > 1 && (
+            {totalPhotos > 1 && (
               <>
                 <button
                   onClick={handlePrev}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/85 transition-all border border-white/10 shadow-lg active:scale-95"
+                  title="Previous photo"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={handleNext}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/85 transition-all border border-white/10 shadow-lg active:scale-95"
+                  title="Next photo"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </>
             )}
 
-            {/* Gradient */}
+            {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0e071a] via-transparent to-transparent pointer-events-none" />
           </div>
+
+          {/* Clickable Photo Thumbnail Strip */}
+          {totalPhotos > 1 && (
+            <div className="p-3 bg-[#090314] border-b border-white/[0.08] flex items-center gap-2 overflow-x-auto">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 shrink-0 px-1 flex items-center gap-1">
+                <Images className="w-3 h-3 text-pink-400" />
+                All Photos:
+              </span>
+              <div className="flex gap-2">
+                {inspectedProfile.photos.map((photoUrl, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActivePhotoIdx(idx)}
+                    className={`relative w-12 h-14 rounded-xl overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                      activePhotoIdx === idx
+                        ? 'border-pink-500 scale-105 shadow-md shadow-pink-500/30'
+                        : 'border-white/20 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={photoUrl}
+                      alt={`Thumbnail ${idx + 1}`}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 right-0 px-1 rounded-tl bg-black/70 text-[9px] text-white font-mono">
+                      {idx + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Details Content */}
           <div className="p-6 space-y-6">
@@ -125,7 +181,7 @@ export const ProfileDetailModal: React.FC = () => {
                   </span>
                 )}
                 {inspectedProfile.verified && (
-                  <span className="p-1 rounded-full bg-emerald-500 text-white" title="Verified African Identity">
+                  <span className="p-1 rounded-full bg-emerald-500 text-white" title="Verified Genuine Identity">
                     <ShieldCheck className="w-4 h-4" />
                   </span>
                 )}
@@ -194,23 +250,40 @@ export const ProfileDetailModal: React.FC = () => {
               </div>
               <div className="text-xs">
                 <div className="font-bold text-white flex items-center gap-2">
-                  <span>Privacy Guard Active</span>
+                  <span>Privacy Guard &amp; Anti-Cheating Active</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
-                    Confidential
+                    Verified
                   </span>
                 </div>
                 <p className="text-[11px] text-purple-200/80 mt-0.5">
-                  Contact numbers and emails are 100% hidden from everyone. Connect safely through Fiffy’s built-in encrypted messaging.
+                  Contact numbers and emails are 100% hidden. Fiffy enforces single active chats to prevent game playing.
                 </p>
               </div>
             </div>
 
-            {/* Lifestyle & Vibe Grid */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Lifestyle & Vibe Grid (including Children Status) */}
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              {/* Children Status Card */}
+              <div className="p-3.5 rounded-xl bg-[#18092f]/80 border border-pink-500/25 col-span-2 sm:col-span-1 shadow-sm">
+                <div className="flex items-center justify-between text-[10px] text-pink-400 uppercase font-bold">
+                  <span className="flex items-center gap-1">
+                    <Baby className="w-3.5 h-3.5 text-pink-400" />
+                    Children / Family
+                  </span>
+                  <span className="text-[9px] text-purple-300 font-normal">Intentions</span>
+                </div>
+                <div className="text-purple-100 font-bold mt-1 text-sm flex items-center gap-1.5">
+                  <span>{childrenInfo.icon}</span>
+                  <span>{childrenInfo.label}</span>
+                </div>
+                <p className="text-[10px] text-purple-300/70 mt-0.5">{childrenInfo.description}</p>
+              </div>
+
               {inspectedProfile.datingGoal && (
-                <div className="p-3 rounded-xl bg-[#15082a]/70 border border-white/10">
+                <div className="p-3.5 rounded-xl bg-[#15082a]/70 border border-white/10 col-span-2 sm:col-span-1">
                   <div className="text-[10px] text-purple-400 uppercase font-bold">Looking For</div>
-                  <div className="text-purple-100 font-semibold mt-0.5">{inspectedProfile.datingGoal}</div>
+                  <div className="text-purple-100 font-bold mt-1 text-sm">{inspectedProfile.datingGoal}</div>
+                  <p className="text-[10px] text-purple-300/70 mt-0.5">Serious dating intentions</p>
                 </div>
               )}
               {inspectedProfile.starSign && (
@@ -221,7 +294,7 @@ export const ProfileDetailModal: React.FC = () => {
               )}
               {inspectedProfile.drinking && (
                 <div className="p-3 rounded-xl bg-[#15082a]/70 border border-white/10 flex items-center gap-2">
-                  <Wine className="w-4 h-4 text-pink-400" />
+                  <Wine className="w-4 h-4 text-pink-400 shrink-0" />
                   <div>
                     <div className="text-[10px] text-purple-400 uppercase font-bold">Drinking</div>
                     <div className="text-purple-100 font-semibold">{inspectedProfile.drinking}</div>
@@ -229,14 +302,62 @@ export const ProfileDetailModal: React.FC = () => {
                 </div>
               )}
               {inspectedProfile.spotifyTopArtist && (
-                <div className="p-3 rounded-xl bg-[#15082a]/70 border border-white/10 flex items-center gap-2">
-                  <Music className="w-4 h-4 text-emerald-400" />
-                  <div>
+                <div className="p-3 rounded-xl bg-[#15082a]/70 border border-white/10 flex items-center gap-2 col-span-2">
+                  <Music className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="truncate">
                     <div className="text-[10px] text-purple-400 uppercase font-bold">Soundtrack</div>
                     <div className="text-purple-100 font-semibold truncate">{inspectedProfile.spotifyTopArtist}</div>
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Dedicated Photo Gallery Section ("View All Photos") */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs uppercase tracking-wider font-bold text-white flex items-center gap-2">
+                  <Images className="w-4 h-4 text-pink-400" />
+                  <span>All Profile Photos ({totalPhotos}/5)</span>
+                </h4>
+                <span className="text-[10px] text-purple-300/70">
+                  Tap any photo to expand
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {inspectedProfile.photos.map((photoUrl, pIdx) => (
+                  <div
+                    key={pIdx}
+                    onClick={() => {
+                      setActivePhotoIdx(pIdx);
+                      // Scroll to top to see enlarged hero photo smoothly
+                      const modalBody = document.querySelector('.overflow-y-auto');
+                      modalBody?.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`group relative aspect-[3/4] rounded-2xl overflow-hidden bg-black/60 border cursor-pointer transition-all ${
+                      activePhotoIdx === pIdx
+                        ? 'border-pink-500 ring-2 ring-pink-500/50 scale-[1.02]'
+                        : 'border-white/10 hover:border-pink-400/50'
+                    }`}
+                  >
+                    <img
+                      src={photoUrl}
+                      alt={`${inspectedProfile.name} ${pIdx + 1}`}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <span className="absolute bottom-2 left-2 text-[10px] font-bold text-white">
+                      Photo {pIdx + 1}
+                    </span>
+                    {pIdx === 0 && (
+                      <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-pink-600 text-white text-[9px] font-extrabold uppercase">
+                        Primary
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Interests Chips */}
@@ -260,20 +381,21 @@ export const ProfileDetailModal: React.FC = () => {
             <div className="pt-4 border-t border-white/10 flex items-center justify-between text-xs">
               <button
                 onClick={() => setShowReportDialog(true)}
-                className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1.5 transition-colors"
+                className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1.5 transition-colors p-2 rounded-xl hover:bg-rose-500/10"
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
+                <AlertTriangle className="w-4 h-4" />
                 <span>Report Profile</span>
               </button>
 
               <button
                 onClick={() => {
                   blockUser(inspectedProfile.id);
+                  showToast('User Blocked', `${inspectedProfile.name} has been blocked and removed from your matches.`, 'info');
                   setInspectedProfile(null);
                 }}
-                className="text-purple-400 hover:text-white font-semibold flex items-center gap-1.5 transition-colors"
+                className="text-purple-400 hover:text-white font-semibold flex items-center gap-1.5 transition-colors p-2 rounded-xl hover:bg-white/10"
               >
-                <Ban className="w-3.5 h-3.5" />
+                <Ban className="w-4 h-4" />
                 <span>Block User</span>
               </button>
             </div>
@@ -345,7 +467,7 @@ export const ProfileDetailModal: React.FC = () => {
               </div>
 
               <p className="text-xs text-purple-300/80 my-4 leading-relaxed">
-                We take member safety seriously. Reports are sent directly to our moderation queue and reviewed promptly.
+                Fiffy is a dedicated platform for genuine, serious relationships. We enforce zero tolerance for cheating, playing games, or misrepresentation.
               </p>
 
               <label className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-2">
@@ -356,9 +478,10 @@ export const ProfileDetailModal: React.FC = () => {
                 onChange={(e) => setReportReason(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-[#16082a]/80 border border-white/10 text-purple-100 text-xs font-semibold mb-4 focus:outline-none focus:border-pink-500"
               >
-                <option value="Inappropriate Photos">Inappropriate Photos</option>
-                <option value="Harassment / Abusive Messages">Harassment / Abusive Messages</option>
-                <option value="Spam or Bot">Spam or Bot</option>
+                <option value="Cheating / Multiple Dating / Playing Games">Cheating / Playing with feelings / Not serious</option>
+                <option value="Inappropriate Photos">Inappropriate or fake photos</option>
+                <option value="Harassment / Abusive Messages">Harassment or rude messages</option>
+                <option value="Spam or Bot">Spam, commercial solicitations, or bot</option>
                 <option value="Impersonation">Impersonation / Fake Profile</option>
                 <option value="Underage">Underage User</option>
                 <option value="Other">Other Violation</option>
