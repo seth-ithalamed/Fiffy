@@ -19,6 +19,18 @@ export type SexualOrientation =
 
 export type ShowMePreference = 'everyone' | 'women' | 'men' | 'non-binary';
 
+export type ChildrenStatus = 'has_children' | 'no_children' | 'prefer_not_to_say';
+
+export type VerificationStatus = 'unverified' | 'pending' | 'verified';
+
+export const MAX_PROFILE_PHOTOS = 5;
+
+export const CHILDREN_STATUS_LABELS: Record<ChildrenStatus, string> = {
+  has_children: 'Has children',
+  no_children: 'Does not have children',
+  prefer_not_to_say: 'Prefers not to say',
+};
+
 export interface PromptAnswer {
   id: string;
   question: string;
@@ -60,6 +72,8 @@ export interface UserProfile {
     | 'Marriage'
     | 'New friends'
     | 'Still figuring it out';
+  hasChildren?: ChildrenStatus;
+  verificationStatus?: VerificationStatus;
   spotifyTopArtist?: string;
   superLikedMe?: boolean;
   likedMe?: boolean;
@@ -85,6 +99,7 @@ export interface CurrentUser extends UserProfile {
   hideAge: boolean;
   hideDistance: boolean;
   readReceipts: boolean;
+  exclusiveChatMatchId?: string | null;
 }
 
 export interface Match {

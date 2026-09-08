@@ -167,12 +167,15 @@ export const INITIAL_CURRENT_USER: CurrentUser = {
   height: `5'8" (173 cm)`,
   starSign: 'Leo',
   datingGoal: 'Long-term relationship',
+  hasChildren: 'no_children',
+  verificationStatus: 'verified',
   drinking: 'Socially',
   smoking: 'Never',
   spotifyTopArtist: 'Burna Boy, Tyla, Kabza De Small & Sampa The Great',
   isPremium: false,
   premiumTier: 'free',
   isExempt: false,
+  exclusiveChatMatchId: null,
   dailySwipesUsed: 0,
   boostsRemaining: 0,
   superLikesRemaining: 3,
@@ -231,6 +234,7 @@ export const MOCK_PROFILES: UserProfile[] = [
     height: `5'7" (170 cm)`,
     starSign: 'Taurus',
     datingGoal: 'Long-term relationship',
+    hasChildren: 'no_children',
     drinking: 'Socially',
     smoking: 'Never',
     spotifyTopArtist: 'Wizkid, Tems & Rema',
@@ -880,6 +884,42 @@ export const ALL_INTEREST_TAGS = [
   'Indie Cinema', 'House Plants', 'Ceramics', 'Marathon Training', 'Book Clubs',
   'Bouldering', 'Cooking', 'Rooftop Gardens', 'Podcasts', 'Sunset Walks', 'Travel in Africa'
 ];
+
+export function resolveDemoLogin(identifier: string, password: string): CurrentUser | null {
+  if (password !== 'password123') return null;
+  const id = identifier.trim().toLowerCase();
+  if (id.includes('lerato') || id === 'lerato.khumalo@fiffys.com') {
+    return {
+      ...INITIAL_CURRENT_USER,
+      isPremium: true,
+      premiumTier: 'gold',
+      exclusiveChatMatchId: 'match-1',
+      email: 'lerato.khumalo@fiffys.com',
+    };
+  }
+  const profile =
+    (id.includes('amara') && MOCK_PROFILES[0]) ||
+    (id.includes('thabo') && MOCK_PROFILES[1]) ||
+    (id.includes('kwame') && MOCK_PROFILES.find((p) => p.name.toLowerCase().includes('kwame'))) ||
+    MOCK_PROFILES.find((p) => (p.name || '').toLowerCase().replace(/\s+/g, '.') && id.includes(p.name.split(' ')[0].toLowerCase()));
+  if (!profile) return null;
+  return {
+    ...INITIAL_CURRENT_USER,
+    ...profile,
+    email: identifier.includes('@') ? identifier : `${profile.name.toLowerCase().replace(/\s+/g, '.')}@demo.fiffys.com`,
+    phone: INITIAL_CURRENT_USER.phone,
+    isPremium: true,
+    premiumTier: 'gold',
+    exclusiveChatMatchId: 'match-1',
+    boostsRemaining: 2,
+    superLikesRemaining: 5,
+    boostExpiresAt: null,
+    incognito: false,
+    hideAge: false,
+    hideDistance: false,
+    readReceipts: true,
+  };
+}
 
 export const PROMPT_QUESTIONS_CATALOG = [
   'Dating me is like...',

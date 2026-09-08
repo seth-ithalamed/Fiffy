@@ -125,7 +125,7 @@ export const MarketingLanding: React.FC = () => {
               <div className="relative w-full max-w-sm rounded-3xl overflow-hidden bg-[#130726] border border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(255,42,133,0.2)] p-2">
                 <div className="relative h-[480px] rounded-2xl overflow-hidden">
                   <img
-                    src="https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80"
+                    src="/assets/landingpage.png"
                     alt="African Single"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
