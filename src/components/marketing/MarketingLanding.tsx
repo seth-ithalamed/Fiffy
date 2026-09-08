@@ -130,10 +130,10 @@ export const MarketingLanding: React.FC = () => {
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0d051c] via-[#0d051c]/30 to-transparent" />
+                 {/*  <div className="absolute inset-0 bg-gradient-to-t from-[#0d051c] via-[#0d051c]/30 to-transparent" />
 
-                  {/* Top Badges */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                  Top Badges 
+                 <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
                     <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-xs font-bold border border-white/10 flex items-center gap-1.5 shadow">
                       <span>🇿🇦</span>
                       <span>Johannesburg, SA</span>
@@ -142,9 +142,9 @@ export const MarketingLanding: React.FC = () => {
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>Verified</span>
                     </span>
-                  </div>
+                  </div>*/}
 
-                  {/* Bottom Bio */}
+                  {/* Bottom Bio 
                   <div className="absolute bottom-4 left-4 right-4 text-white">
                     <h3 className="font-display font-extrabold text-2xl">Zola, 27</h3>
                     <p className="text-xs text-pink-300 font-medium mt-0.5">Fashion Curator &bull; Rosebank</p>
@@ -163,7 +163,7 @@ export const MarketingLanding: React.FC = () => {
                         Spark Match
                       </button>
                     </div>
-                  </div>
+                  </div>*/}
                 </div>
               </div>
             </div>
