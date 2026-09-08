@@ -9,6 +9,7 @@ import {
   PayFastConfig,
   Testimonial,
   ChildrenStatus,
+  PlatformManager,
 } from '../types/index';
 
 export interface CountryOption {
@@ -871,6 +872,56 @@ export const INITIAL_TESTIMONIALS: Testimonial[] = [
     verified: true,
     status: 'published',
     createdAt: '2026-03-20T12:00:00.000Z',
+  },
+];
+
+export const INITIAL_PLATFORM_MANAGERS: PlatformManager[] = [
+  {
+    id: 'mgr-root',
+    name: 'Executive Admin',
+    email: 'admin@fiffy.com',
+    role: 'co_admin',
+    department: 'Platform Governance & Executive Operations',
+    status: 'active',
+    isRootAdmin: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+  },
+  {
+    id: 'mgr-2',
+    name: 'Kudzi Moyo',
+    email: 'kudzi.moyo@fiffys.com',
+    phone: '+263 77 234 5678',
+    role: 'moderator',
+    department: 'Harare Trust & Safety Hub',
+    status: 'active',
+    isRootAdmin: false,
+    createdAt: '2026-02-10T12:00:00.000Z',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+  },
+  {
+    id: 'mgr-3',
+    name: 'Tariro Chikore',
+    email: 'tariro.chikore@fiffys.com',
+    phone: '+27 82 456 7890',
+    role: 'support_vip',
+    department: 'Johannesburg VIP Concierge Desk',
+    status: 'active',
+    isRootAdmin: false,
+    createdAt: '2026-02-18T09:30:00.000Z',
+    avatarUrl: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=120&q=80',
+  },
+  {
+    id: 'mgr-4',
+    name: 'Farai Nkomo',
+    email: 'farai.nkomo@fiffys.com',
+    phone: '+44 77 0090 0123',
+    role: 'content_manager',
+    department: 'London Diaspora Outreach & Love Stories',
+    status: 'active',
+    isRootAdmin: false,
+    createdAt: '2026-03-01T14:15:00.000Z',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
   },
 ];
 

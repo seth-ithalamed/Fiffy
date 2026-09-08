@@ -232,10 +232,28 @@ export interface AuthUser {
   phone?: string;
   contactNumber?: string;
   name: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'manager';
   token: string;
   avatarUrl?: string;
   country?: string;
+  isDemo?: boolean;
+  isPremium?: boolean;
+  premiumTier?: string;
+}
+
+export type PlatformManagerRole = 'co_admin' | 'moderator' | 'content_manager' | 'support_vip';
+
+export interface PlatformManager {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: PlatformManagerRole;
+  department?: string;
+  status: 'active' | 'suspended';
+  avatarUrl?: string;
+  createdAt: string;
+  isRootAdmin?: boolean;
 }
 
 export interface ActiveSinglesCountry {

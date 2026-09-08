@@ -43,11 +43,14 @@ Best for global CDN distribution with Vercel's edge network for the UI.
 
 ---
 
-## Strategy C: Mobile App (Expo / React Native)
-The mobile app lives in the `/mobile` directory:
-- To run locally with Expo Go:
-  ```bash
-  cd mobile
-  npx expo start
-  ```
-- To point the mobile app to your Render backend, set `API_BASE` in `mobile/src/context/AppContext.tsx` to your Render URL.
+## Troubleshooting & Standalone Demo Mode
+
+### Error: `Unexpected token '<', "<html> <hea"... is not valid JSON`
+- **Why this happens**:
+  This occurs when the frontend is deployed to Vercel (or tested as a static site) before the backend service is deployed on Render, or when `VITE_API_BASE_URL` in Vercel is not pointing to your Render URL. Because Vercel has an SPA rewrite rule (`/(.*) -> index.html`), requests to `/api/*` receive the HTML webpage instead of JSON.
+- **Can Demo Accounts and Administrator run without the backend?**:
+  **Yes!** The application is equipped with full **Standalone Demo Fallbacks**:
+  - **Demo Admin Portal**: Sign in with `admin@fiffy.com` / `admin123` (or click **Auto-fill**) to access the full Executive Console, manage VIP member exemptions, edit tiers, and configure gateways entirely in local browser state.
+  - **Demo User Accounts**: Click any profile switcher or enter any demo email to test swiping, chat matching, and VIP subscriptions without needing the live server.
+  - **Connecting the Live Backend**: Once you deploy your backend service to Render, add `VITE_API_BASE_URL=https://your-service.onrender.com` in Vercel settings and redeploy. All requests will automatically switch from local demo fallbacks to your persistent database backend.
+

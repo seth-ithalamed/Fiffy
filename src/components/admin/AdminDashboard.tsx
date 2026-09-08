@@ -30,8 +30,18 @@ import {
   Sparkles,
   Calendar,
   Phone,
+  Compass,
+  UserCheck,
+  UserCog,
+  Shield,
 } from 'lucide-react';
-import { SubscriptionPlan, PushNotificationBroadcast, Testimonial } from '../../types';
+import {
+  SubscriptionPlan,
+  PushNotificationBroadcast,
+  Testimonial,
+  PlatformManager,
+  PlatformManagerRole,
+} from '../../types';
 import { AFRICAN_COUNTRIES } from '../../data/mockData';
 
 const calculateAge = (dobString: string): number => {
@@ -72,6 +82,10 @@ export const AdminDashboard: React.FC = () => {
     adminAddUser,
     adminToggleUserExemption,
     adminDeleteUser,
+    platformManagers,
+    addPlatformManager,
+    updatePlatformManager,
+    deletePlatformManager,
   } = useApp();
 
   // Admin login form states
@@ -80,8 +94,20 @@ export const AdminDashboard: React.FC = () => {
   const [loginError, setLoginError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
-  // Tabs inside admin portal
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'gateway' | 'users' | 'testimonials' | 'moderation' | 'broadcast' | 'database'>('users');
+  // Tabs inside admin portal - includes dedicated platform managers tab
+  const [activeTab, setActiveTab] = useState<'subscriptions' | 'gateway' | 'users' | 'managers' | 'testimonials' | 'moderation' | 'broadcast' | 'database'>('users');
+
+  // Platform Manager create modal state
+  const [isAddManagerModalOpen, setIsAddManagerModalOpen] = useState(false);
+  const [newManagerForm, setNewManagerForm] = useState({
+    name: '',
+    email: '',
+    phone: '+263 77 ',
+    role: 'co_admin' as PlatformManagerRole,
+    department: 'Platform Operations & Safety Hub',
+    password: 'manager2026',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+  });
 
   // Subscription plan edit/create modal state
   const [isEditingPlan, setIsEditingPlan] = useState<boolean>(false);
@@ -264,6 +290,39 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleAddPlatformManager = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newManagerForm.name.trim() || !newManagerForm.email.trim()) {
+      showToast('Validation Error', 'Name and email are required to authorize a manager.');
+      return;
+    }
+    const res = await addPlatformManager({
+      name: newManagerForm.name,
+      email: newManagerForm.email,
+      phone: newManagerForm.phone,
+      role: newManagerForm.role,
+      department: newManagerForm.department,
+      password: newManagerForm.password,
+      avatarUrl: newManagerForm.avatarUrl,
+      status: 'active',
+      isRootAdmin: false,
+    });
+    if (res.success) {
+      setIsAddManagerModalOpen(false);
+      setNewManagerForm({
+        name: '',
+        email: '',
+        phone: '+263 77 ',
+        role: 'co_admin',
+        department: 'Platform Operations & Safety Hub',
+        password: 'manager2026',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+      });
+    } else {
+      showToast('Error', res.error || 'Failed to authorize platform manager');
+    }
+  };
+
   const handleSaveTestimonial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!testimonialForm.coupleNames || !testimonialForm.story) {
@@ -333,17 +392,44 @@ export const AdminDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/30 text-[11px] text-purple-300/80">
-              <span className="font-bold text-pink-400">Demo Executive Credentials:</span>
-              <br />
-              Email: <code className="text-white">admin@fiffy.com</code> | Password: <code className="text-white">admin123</code>
+            <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/30 text-[11px] text-purple-300/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-pink-400">Quick Test Credentials:</span>
+                <span className="text-[10px] text-purple-400">Click to fill</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  id="auto-fill-admin-creds-btn"
+                  onClick={() => {
+                    setAdminEmail('admin@fiffy.com');
+                    setAdminPassword('admin123');
+                  }}
+                  className="p-2 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 text-left text-pink-200 border border-pink-500/30 transition-all cursor-pointer"
+                >
+                  <div className="font-bold text-[11px] text-pink-300">Executive Admin</div>
+                  <div className="text-[10px] text-gray-300 font-mono">admin@fiffy.com</div>
+                </button>
+                <button
+                  type="button"
+                  id="auto-fill-manager-creds-btn"
+                  onClick={() => {
+                    setAdminEmail('kudzi.moyo@fiffys.com');
+                    setAdminPassword('manager2026');
+                  }}
+                  className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-left text-purple-200 border border-purple-500/30 transition-all cursor-pointer"
+                >
+                  <div className="font-bold text-[11px] text-purple-300">Staff Manager</div>
+                  <div className="text-[10px] text-gray-300 font-mono">kudzi.moyo@fiffys.com</div>
+                </button>
+              </div>
             </div>
 
             <button
               id="admin-login-submit-btn"
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3 rounded-xl gradient-fiffy text-white font-bold text-sm shadow-lg shadow-pink-500/25 hover:brightness-110 transition-all disabled:opacity-50"
+              className="w-full py-3 rounded-xl gradient-fiffy text-white font-bold text-sm shadow-lg shadow-pink-500/25 hover:brightness-110 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isLoggingIn ? 'Verifying...' : 'Sign In as Administrator'}
             </button>
@@ -355,7 +441,7 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="flex-1 h-full bg-[#080310] text-slate-100 overflow-y-auto p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-6 pb-20">
+      <div className="max-w-7xl mx-auto space-y-6 pb-20">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-900/40">
           <div>
@@ -372,84 +458,83 @@ export const AdminDashboard: React.FC = () => {
             </p>
           </div>
 
-          {/* Admin user bar */}
+          {/* Admin user bar with Sign Out button */}
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-xs font-bold text-white">{adminSession.name}</div>
-              <div className="text-[10px] text-emerald-400 font-semibold flex items-center justify-end gap-1">
+              <div className="text-xs font-bold text-white flex items-center justify-end gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                <span>{adminSession.name}</span>
+              </div>
+              <div className="text-[10px] text-emerald-400 font-semibold flex items-center justify-end gap-1 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>DB Session Live</span>
+                <span>Admin Session • Live</span>
               </div>
             </div>
+
+            {/* Logout button */}
             <button
               id="admin-logout-btn"
               onClick={logoutAdmin}
-              className="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-300 border border-white/10 transition-colors"
-              title="Lock Console"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 hover:text-white border border-rose-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Sign Out of Administrator Console"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="text-[11px] font-bold">Sign Out</span>
             </button>
           </div>
         </div>
 
-        {/* METRIC CARDS */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10">
+        {/* METRIC CARDS - Service deployment card removed, balanced 3-card grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
             <div className="text-xs text-purple-300/80 font-medium">Subscription Revenue</div>
             <div className="text-2xl font-black text-white mt-1">$ 84,250</div>
             <div className="text-[11px] text-emerald-400 font-semibold mt-1">Worldwide Subscriptions • USD</div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10">
+          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
             <div className="text-xs text-purple-300/80 font-medium">Active Plans</div>
             <div className="text-2xl font-black text-white mt-1">{subscriptionPlans.length} VIP Tiers</div>
             <div className="text-[11px] text-pink-400 font-semibold mt-1">Pricing in USD ($)</div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10">
+          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
             <div className="text-xs text-purple-300/80 font-medium">Registered Members</div>
             <div className="text-2xl font-black text-white mt-1">{adminUsersList.length} Users</div>
             <div className="text-[11px] text-amber-400 font-semibold mt-1">
               {adminUsersList.filter(u => u.isExempt).length} VIP Exceptions
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#130726] border border-white/10">
-            <div className="text-xs text-purple-300/80 font-medium">Service Deployment</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1">Production</div>
-            <div className="text-[11px] text-purple-300/80 mt-1">Render • Vercel • Supabase</div>
-          </div>
         </div>
 
-        {/* ADMIN TAB SWITCHER */}
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-white/10 pb-2">
-          {[
-            { id: 'users', label: `Members & VIP Exceptions (${adminUsersList.length})`, icon: Users },
-            { id: 'testimonials', label: `Love Stories & Testimonies (${testimonials.length})`, icon: Heart },
-            { id: 'subscriptions', label: 'Subscription Plans (USD)', icon: CreditCard },
-            { id: 'gateway', label: 'PayFast & Zimbabwe Gateways', icon: Key },
-            { id: 'moderation', label: `Moderation (${reportedItems.length})`, icon: AlertTriangle },
-            { id: 'broadcast', label: 'Push Broadcasts', icon: Bell },
-            { id: 'database', label: 'Demo Data Management', icon: Database },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                id={`admin-tab-${tab.id}`}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'gradient-fiffy text-white shadow-md shadow-pink-500/25'
-                    : 'text-purple-200/80 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* DASHBOARD WORKSPACE WITH NAVIGATION ITEMS POSITIONED ON THE RIGHT */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* Main Content Area (Left/Center) */}
+          <main className="flex-1 w-full min-w-0 order-2 lg:order-1 space-y-6">
+            {/* Active Module Status Header */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#130726]/70 border border-white/10 shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shrink-0" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  {
+                    {
+                      users: `Members & VIP Exceptions (${adminUsersList.length})`,
+                      managers: `Platform Managers & Staff Team (${platformManagers.length})`,
+                      testimonials: `Love Stories & Testimonies (${testimonials.length})`,
+                      subscriptions: 'Subscription Plans & Pricing (USD)',
+                      gateway: 'PayFast & Zimbabwe Payment Gateways',
+                      moderation: `Safety & Moderation Queue (${reportedItems.length})`,
+                      broadcast: 'Push Broadcast Notifications',
+                      database: 'Demo Data Management',
+                    }[activeTab] || 'Executive Module'
+                  }
+                </span>
+              </div>
+              <div className="text-[11px] text-purple-300/70 hidden sm:flex items-center gap-1.5 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-pink-400" />
+                <span>Executive Management</span>
+              </div>
+            </div>
 
-        {/* 1. SUBSCRIPTIONS TAB */}
+            {/* 1. SUBSCRIPTIONS TAB */}
         {activeTab === 'subscriptions' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -867,6 +952,25 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
+                  id="tab-open-add-manager-btn"
+                  onClick={() => {
+                    setNewManagerForm({
+                      name: '',
+                      email: '',
+                      phone: '+263 77 ',
+                      role: 'co_admin',
+                      department: 'Platform Operations & Safety Hub',
+                      password: 'manager2026',
+                      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+                    });
+                    setIsAddManagerModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-900/60 hover:bg-purple-900 text-purple-200 hover:text-white border border-purple-700/50 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-pink-400" />
+                  <span>+ Add Platform Manager</span>
+                </button>
+                <button
                   id="add-admin-user-btn"
                   onClick={() => setIsAddUserModalOpen(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl gradient-fiffy text-white text-xs font-bold shadow-md shadow-pink-500/25 hover:brightness-110"
@@ -977,18 +1081,39 @@ export const AdminDashboard: React.FC = () => {
                             </td>
 
                             <td className="p-3.5 text-right">
-                              <button
-                                id={`delete-user-${u.id}`}
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to delete user ${u.name}?`)) {
-                                    adminDeleteUser(u.id);
-                                  }
-                                }}
-                                className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 transition-colors"
-                                title="Delete User"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  id={`promote-manager-${u.id}`}
+                                  onClick={() => {
+                                    setNewManagerForm({
+                                      name: u.name,
+                                      email: u.email || `${u.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@fiffys.com`,
+                                      phone: u.phone || u.contactNumber || '+263 77 000 0000',
+                                      role: 'moderator',
+                                      department: `${u.city || 'Regional'} Safety & Operations Hub`,
+                                      password: 'manager2026',
+                                      avatarUrl: u.photos?.[0] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+                                    });
+                                    setIsAddManagerModalOpen(true);
+                                  }}
+                                  className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-pink-300 transition-colors border border-purple-500/20 cursor-pointer"
+                                  title="Promote Member to Platform Manager"
+                                >
+                                  <UserCheck className="w-4 h-4" />
+                                </button>
+                                <button
+                                  id={`delete-user-${u.id}`}
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to delete user ${u.name}?`)) {
+                                      adminDeleteUser(u.id);
+                                    }
+                                  }}
+                                  className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 transition-colors cursor-pointer"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1210,6 +1335,273 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* PLATFORM MANAGERS & STAFF TEAM TAB */}
+        {activeTab === 'managers' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-pink-400" />
+                  <span>Platform Managers &amp; Operations Team ({platformManagers.length})</span>
+                </h3>
+                <p className="text-xs text-purple-300/80 mt-0.5">
+                  Executive administrators can add, authorize, and manage staff members to help govern subscriptions, safety, user exceptions, and diaspora love stories.
+                </p>
+              </div>
+              <button
+                id="add-platform-manager-btn"
+                onClick={() => {
+                  setNewManagerForm({
+                    name: '',
+                    email: '',
+                    phone: '+263 77 ',
+                    role: 'co_admin',
+                    department: 'Platform Operations & Safety Hub',
+                    password: 'manager2026',
+                    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+                  });
+                  setIsAddManagerModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-fiffy text-white text-xs font-bold shadow-lg shadow-pink-500/25 hover:brightness-110 shrink-0 cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Add Platform Manager</span>
+              </button>
+            </div>
+
+            {/* Team Stats Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
+                <div className="text-[11px] text-purple-300/70 font-semibold">Total Staff</div>
+                <div className="text-xl font-black text-white mt-0.5">{platformManagers.length} Team Members</div>
+                <div className="text-[10px] text-emerald-400 font-medium mt-1 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Permanent Operations</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
+                <div className="text-[11px] text-purple-300/70 font-semibold">Co-Admins</div>
+                <div className="text-xl font-black text-white mt-0.5">
+                  {platformManagers.filter((m) => m.role === 'co_admin').length} Executive
+                </div>
+                <div className="text-[10px] text-purple-300/80 mt-1">Full System Authority</div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
+                <div className="text-[11px] text-purple-300/70 font-semibold">Safety &amp; Moderation</div>
+                <div className="text-xl font-black text-white mt-0.5">
+                  {platformManagers.filter((m) => m.role === 'moderator').length} Officers
+                </div>
+                <div className="text-[10px] text-amber-300/80 mt-1">Chat &amp; Profile Safety</div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#130726] border border-white/10 shadow-sm">
+                <div className="text-[11px] text-purple-300/70 font-semibold">Concierge &amp; Stories</div>
+                <div className="text-xl font-black text-white mt-0.5">
+                  {platformManagers.filter((m) => m.role === 'content_manager' || m.role === 'support_vip').length} Leads
+                </div>
+                <div className="text-[10px] text-pink-300/80 mt-1">Love Stories &amp; VIP Support</div>
+              </div>
+            </div>
+
+            {/* Platform Managers List Table */}
+            <div className="bg-[#130726] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+              <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Authorized Platform Managers &amp; Operations Team
+                  </span>
+                </div>
+                <div className="text-xs text-purple-300/80 font-medium">
+                  Authorized Operations Team • Secure Role-Based Access
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/10 text-purple-300/70 font-semibold uppercase tracking-wider text-[10px] bg-white/[0.02]">
+                      <th className="p-3.5">Manager Profile</th>
+                      <th className="p-3.5">Role &amp; Responsibilities</th>
+                      <th className="p-3.5">Department / Regional Hub</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5">Date Authorized</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {platformManagers.map((mgr) => {
+                      const roleMeta: Record<
+                        PlatformManagerRole,
+                        { label: string; bg: string; text: string; border: string; desc: string }
+                      > = {
+                        co_admin: {
+                          label: 'Platform Co-Admin',
+                          bg: 'bg-purple-500/20',
+                          text: 'text-purple-300',
+                          border: 'border-purple-500/40',
+                          desc: 'Full administrative authority across all modules',
+                        },
+                        moderator: {
+                          label: 'Trust & Safety Moderator',
+                          bg: 'bg-emerald-500/20',
+                          text: 'text-emerald-300',
+                          border: 'border-emerald-500/40',
+                          desc: 'Reviews reported chats & enforces member bans',
+                        },
+                        content_manager: {
+                          label: 'Content & Stories Editor',
+                          bg: 'bg-pink-500/20',
+                          text: 'text-pink-300',
+                          border: 'border-pink-500/40',
+                          desc: 'Curates couple love stories & marketing copy',
+                        },
+                        support_vip: {
+                          label: 'VIP Concierge & Support',
+                          bg: 'bg-amber-500/20',
+                          text: 'text-amber-300',
+                          border: 'border-amber-500/40',
+                          desc: 'Handles VIP status exceptions & member inquiries',
+                        },
+                      };
+
+                      const currentRole = roleMeta[mgr.role] || roleMeta.co_admin;
+                      const isActive = mgr.status === 'active';
+
+                      return (
+                        <tr key={mgr.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={mgr.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80'}
+                                alt={mgr.name}
+                                referrerPolicy="no-referrer"
+                                className="w-10 h-10 rounded-xl object-cover border border-white/10 shadow-sm shrink-0"
+                              />
+                              <div>
+                                <div className="font-bold text-white flex items-center gap-1.5">
+                                  <span>{mgr.name}</span>
+                                  {mgr.isRootAdmin && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-pink-500/30 text-pink-200 border border-pink-500/40">
+                                      Primary Admin
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-purple-300/80 font-mono mt-0.5">
+                                  {mgr.email}
+                                </div>
+                                {mgr.phone && (
+                                  <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                    <Phone className="w-2.5 h-2.5" />
+                                    <span>{mgr.phone}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <div>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${currentRole.bg} ${currentRole.text} ${currentRole.border}`}
+                              >
+                                <ShieldCheck className="w-3 h-3" />
+                                <span>{currentRole.label}</span>
+                              </span>
+                              <div className="text-[10px] text-gray-400 mt-1 max-w-xs">
+                                {currentRole.desc}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="p-3.5 text-purple-200 font-medium">
+                            {mgr.department || 'Operations Hub'}
+                          </td>
+
+                          <td className="p-3.5">
+                            <button
+                              id={`toggle-manager-status-${mgr.id}`}
+                              disabled={mgr.isRootAdmin}
+                              onClick={() =>
+                                updatePlatformManager(mgr.id, {
+                                  status: isActive ? 'suspended' : 'active',
+                                })
+                              }
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                                isActive
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+                              } ${mgr.isRootAdmin ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
+                              title={mgr.isRootAdmin ? 'Primary admin cannot be suspended' : 'Click to toggle active status'}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+                                }`}
+                              />
+                              <span>{isActive ? 'Active' : 'Suspended'}</span>
+                            </button>
+                          </td>
+
+                          <td className="p-3.5 text-gray-400 text-[11px]">
+                            {new Date(mgr.createdAt).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <select
+                                id={`change-role-${mgr.id}`}
+                                value={mgr.role}
+                                disabled={mgr.isRootAdmin}
+                                onChange={(e) =>
+                                  updatePlatformManager(mgr.id, {
+                                    role: e.target.value as PlatformManagerRole,
+                                  })
+                                }
+                                className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-white text-[11px] focus:outline-none focus:border-pink-500 disabled:opacity-50"
+                                title="Change Role"
+                              >
+                                <option value="co_admin" className="bg-[#130726]">Platform Co-Admin</option>
+                                <option value="moderator" className="bg-[#130726]">Trust Moderator</option>
+                                <option value="content_manager" className="bg-[#130726]">Content Editor</option>
+                                <option value="support_vip" className="bg-[#130726]">VIP Concierge</option>
+                              </select>
+
+                              <button
+                                id={`delete-manager-${mgr.id}`}
+                                disabled={mgr.isRootAdmin}
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      `Are you sure you want to revoke platform management permissions for ${mgr.name}?`
+                                    )
+                                  ) {
+                                    deletePlatformManager(mgr.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 transition-colors disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                                title={mgr.isRootAdmin ? 'Root administrator cannot be deleted' : 'Revoke Management Access'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1602,6 +1994,243 @@ export const AdminDashboard: React.FC = () => {
                 <span>Dispatch Broadcast Notification</span>
               </button>
             </form>
+          </div>
+        )}
+          </main>
+
+          {/* RIGHT NAVIGATION MENU PANEL */}
+          <aside className="w-full lg:w-72 xl:w-80 shrink-0 order-1 lg:order-2">
+            <div className="sticky top-6 p-4 rounded-2xl bg-[#130726] border border-white/10 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-2">
+                  <Compass className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Navigation Menu</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                  8 Modules
+                </span>
+              </div>
+
+              {/* Navigation Items: 2 columns on small screens, 1 vertical column on lg+ */}
+              <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1.5" aria-label="Executive Navigation">
+                {[
+                  { id: 'users', label: 'Members & VIP Exceptions', badge: adminUsersList.length, icon: Users },
+                  { id: 'managers', label: 'Platform Managers & Staff', badge: platformManagers.length, icon: UserCheck },
+                  { id: 'testimonials', label: 'Love Stories & Testimonies', badge: testimonials.length, icon: Heart },
+                  { id: 'subscriptions', label: 'Subscription Plans (USD)', badge: subscriptionPlans.length, icon: CreditCard },
+                  { id: 'gateway', label: 'PayFast & Zimbabwe Gateways', icon: Key },
+                  { id: 'moderation', label: 'Moderation Queue', badge: reportedItems.length, icon: AlertTriangle },
+                  { id: 'broadcast', label: 'Push Broadcasts', icon: Bell },
+                  { id: 'database', label: 'Demo Data Management', icon: Database },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      id={`admin-tab-${tab.id}`}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer group ${
+                        isActive
+                          ? 'gradient-fiffy text-white shadow-md shadow-pink-500/25 ring-1 ring-pink-400/50'
+                          : 'text-purple-200/80 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`p-1.5 rounded-lg shrink-0 transition-colors ${
+                            isActive
+                              ? 'bg-white/20 text-white'
+                              : 'bg-white/5 text-purple-400 group-hover:text-pink-400'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <span className="truncate">{tab.label}</span>
+                      </div>
+                      {tab.badge !== undefined && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
+                            isActive
+                              ? 'bg-white/25 text-white'
+                              : 'bg-purple-950/60 text-purple-300 border border-purple-800/40'
+                          }`}
+                        >
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </aside>
+        </div>
+
+        {/* ADD PLATFORM MANAGER MODAL (Accessible across all tabs & actions) */}
+        {isAddManagerModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="w-full max-w-lg bg-[#130726] border border-white/15 rounded-3xl p-6 sm:p-7 shadow-2xl text-white space-y-4 my-8 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div>
+                  <h3 className="font-bold text-base text-white flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-pink-400" />
+                    <span>Authorize Platform Manager</span>
+                  </h3>
+                  <p className="text-xs text-purple-300/70 mt-0.5">
+                    Add team member with delegated access to help manage Fiffy’s worldwide operations.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAddManagerModalOpen(false)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleAddPlatformManager} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-purple-200 mb-1">
+                    Manager Full Name *
+                  </label>
+                  <input
+                    id="new-manager-name"
+                    type="text"
+                    required
+                    value={newManagerForm.name}
+                    onChange={(e) => setNewManagerForm({ ...newManagerForm, name: e.target.value })}
+                    placeholder="e.g. Tariro Chikore"
+                    className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-pink-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-purple-200 mb-1">
+                      Staff Email Address *
+                    </label>
+                    <input
+                      id="new-manager-email"
+                      type="email"
+                      required
+                      value={newManagerForm.email}
+                      onChange={(e) => setNewManagerForm({ ...newManagerForm, email: e.target.value })}
+                      placeholder="name@fiffys.com"
+                      className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-purple-200 mb-1">
+                      Phone / WhatsApp Number
+                    </label>
+                    <input
+                      id="new-manager-phone"
+                      type="text"
+                      value={newManagerForm.phone}
+                      onChange={(e) => setNewManagerForm({ ...newManagerForm, phone: e.target.value })}
+                      placeholder="+263 77 123 4567"
+                      className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-pink-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-purple-200 mb-1">
+                    Assigned Platform Role *
+                  </label>
+                  <select
+                    id="new-manager-role"
+                    value={newManagerForm.role}
+                    onChange={(e) =>
+                      setNewManagerForm({
+                        ...newManagerForm,
+                        role: e.target.value as PlatformManagerRole,
+                      })
+                    }
+                    className="w-full px-3.5 py-2 rounded-xl bg-[#1a0c33] border border-white/10 text-white focus:outline-none focus:border-pink-500"
+                  >
+                    <option value="co_admin">Platform Co-Admin (Full Authority)</option>
+                    <option value="moderator">Trust &amp; Safety Moderator (Bans &amp; Flags)</option>
+                    <option value="content_manager">Content &amp; Stories Manager (Testimonials)</option>
+                    <option value="support_vip">VIP Concierge &amp; Exceptions (Member Support)</option>
+                  </select>
+                  <p className="text-[11px] text-purple-300/70 mt-1">
+                    {newManagerForm.role === 'co_admin' && '• Has executive permission across plans, gateways, users and moderation.'}
+                    {newManagerForm.role === 'moderator' && '• Manages reported conversations, suspicious media, and member bans.'}
+                    {newManagerForm.role === 'content_manager' && '• Approves love stories, updates diaspora couples and promotional copy.'}
+                    {newManagerForm.role === 'support_vip' && '• Handles VIP status exceptions, subscription issues, and push notifications.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-purple-200 mb-1">
+                      Department or Location Hub
+                    </label>
+                    <input
+                      id="new-manager-department"
+                      type="text"
+                      value={newManagerForm.department}
+                      onChange={(e) => setNewManagerForm({ ...newManagerForm, department: e.target.value })}
+                      placeholder="e.g. Harare Trust & Safety Hub"
+                      className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-purple-200 mb-1">
+                      Console Access Password
+                    </label>
+                    <input
+                      id="new-manager-password"
+                      type="text"
+                      value={newManagerForm.password}
+                      onChange={(e) => setNewManagerForm({ ...newManagerForm, password: e.target.value })}
+                      placeholder="manager2026"
+                      className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white font-mono focus:outline-none focus:border-pink-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-purple-200 mb-1">
+                    Staff Avatar Photo URL
+                  </label>
+                  <input
+                    id="new-manager-avatar"
+                    type="url"
+                    value={newManagerForm.avatarUrl}
+                    onChange={(e) => setNewManagerForm({ ...newManagerForm, avatarUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-pink-500"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>This manager will be immediately authorized to sign into the Administrator Console.</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddManagerModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    id="submit-add-manager-btn"
+                    type="submit"
+                    className="px-5 py-2 rounded-xl gradient-fiffy text-white font-bold shadow-lg shadow-pink-500/25 hover:brightness-110 cursor-pointer"
+                  >
+                    Authorize Manager
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>

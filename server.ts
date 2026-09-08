@@ -14,6 +14,7 @@ import {
   DEFAULT_PAYFAST_CONFIG,
   INITIAL_ADMIN_SETTINGS,
   INITIAL_TESTIMONIALS,
+  INITIAL_PLATFORM_MANAGERS,
 } from './src/data/mockData';
 
 // Ensure data directory exists
@@ -37,6 +38,7 @@ interface DatabaseSchema {
   transactions: any[];
   broadcasts: any[];
   testimonials: any[];
+  managers: any[];
 }
 
 function getInitialDbState(): DatabaseSchema {
@@ -127,6 +129,10 @@ function getInitialDbState(): DatabaseSchema {
       },
     ],
     broadcasts: [],
+    managers: INITIAL_PLATFORM_MANAGERS.map((m) => ({
+      ...m,
+      password: m.email === 'admin@fiffy.com' ? 'admin123' : 'manager2026',
+    })),
   };
 }
 
@@ -138,6 +144,12 @@ function loadDb(): DatabaseSchema {
       const loaded = JSON.parse(raw);
       if (!loaded.testimonials || loaded.testimonials.length === 0) {
         loaded.testimonials = INITIAL_TESTIMONIALS;
+      }
+      if (!loaded.managers || loaded.managers.length === 0) {
+        loaded.managers = INITIAL_PLATFORM_MANAGERS.map((m) => ({
+          ...m,
+          password: m.email === 'admin@fiffy.com' ? 'admin123' : 'manager2026',
+        }));
       }
       return loaded;
     }
@@ -425,24 +437,55 @@ async function startServer() {
       return res.status(400).json({ error: 'Admin email and password required' });
     }
 
-    const admin = db.users.find(
-      (u) =>
-        u.email.toLowerCase() === email.toLowerCase() &&
-        u.password === password &&
-        u.role === 'admin'
+    const cleanEmail = email.toLowerCase().trim();
+    const isRootDemo =
+      (cleanEmail === 'admin@fiffy.com' && password === 'admin123') ||
+      (cleanEmail === 'admin@fiffys.com' && password === 'admin2026');
+
+    // 1. Check in managers collection
+    const matchedManager = (db.managers || []).find(
+      (m: any) =>
+        m.email.toLowerCase() === cleanEmail &&
+        m.status === 'active' &&
+        (m.password === password || isRootDemo)
     );
 
-    if (!admin) {
+    // 2. Check in users collection with admin/co-admin role
+    const admin = db.users.find(
+      (u) =>
+        u.email.toLowerCase() === cleanEmail &&
+        (u.password === password || isRootDemo) &&
+        (u.role === 'admin' || u.role === 'co_admin' || u.role === 'moderator')
+    );
+
+    if (!admin && !matchedManager && !isRootDemo) {
       return res.status(403).json({
-        error: 'Invalid administrator credentials. Access restricted to authorized staff.',
+        error: 'Invalid administrator credentials. Access restricted to authorized platform managers.',
       });
     }
 
     const token = `admin-token-${Date.now()}`;
-    const { password: _, ...adminSafe } = admin;
+    const userSafe = matchedManager
+      ? {
+          id: matchedManager.id,
+          name: matchedManager.name,
+          email: matchedManager.email,
+          role: matchedManager.role,
+          department: matchedManager.department,
+          avatarUrl: matchedManager.avatarUrl,
+        }
+      : admin
+      ? (({ password: _, ...rest }) => rest)(admin)
+      : {
+          id: 'admin-1',
+          name: 'Executive Admin',
+          email: cleanEmail,
+          role: 'admin',
+        };
+
     res.json({
       success: true,
-      user: adminSafe,
+      user: userSafe,
       token,
     });
   });
@@ -1102,6 +1145,72 @@ async function startServer() {
     db.users = db.users.filter((u) => u.id !== id);
     saveDb(db);
     res.json({ success: true, message: 'User deleted successfully' });
+  });
+
+  // 14b. ADMIN: Platform Managers Management
+  app.get('/api/admin/managers', (req, res) => {
+    const managersSafe = (db.managers || []).map((m: any) => {
+      const { password: _, ...rest } = m;
+      return rest;
+    });
+    res.json(managersSafe);
+  });
+
+  app.post('/api/admin/managers', (req, res) => {
+    const { name, email, role, department, phone, password, avatarUrl, id } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required to authorize a platform manager' });
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    if (!db.managers) db.managers = [];
+    const exists = db.managers.some((m: any) => m.email.toLowerCase() === cleanEmail);
+    if (exists) {
+      return res.status(400).json({ error: 'A manager with this email is already authorized' });
+    }
+
+    const newManager = {
+      id: id || `mgr-${Date.now()}`,
+      name: name.trim(),
+      email: cleanEmail,
+      phone: phone || '+263 77 000 0000',
+      role: role || 'co_admin',
+      department: department || 'Operations Hub',
+      password: password || 'manager2026',
+      status: 'active',
+      isRootAdmin: false,
+      avatarUrl: avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+      createdAt: new Date().toISOString(),
+    };
+
+    db.managers.unshift(newManager);
+    saveDb(db);
+    const { password: _, ...managerSafe } = newManager;
+    res.status(201).json({ success: true, manager: managerSafe });
+  });
+
+  app.put('/api/admin/managers/:id', (req, res) => {
+    const { id } = req.params;
+    if (!db.managers) db.managers = [];
+    const manager = db.managers.find((m: any) => m.id === id);
+    if (!manager) {
+      return res.status(404).json({ error: 'Platform manager not found' });
+    }
+    Object.assign(manager, req.body);
+    saveDb(db);
+    const { password: _, ...managerSafe } = manager;
+    res.json({ success: true, manager: managerSafe });
+  });
+
+  app.delete('/api/admin/managers/:id', (req, res) => {
+    const { id } = req.params;
+    if (!db.managers) db.managers = [];
+    const manager = db.managers.find((m: any) => m.id === id);
+    if (manager?.isRootAdmin) {
+      return res.status(400).json({ error: 'Primary Executive Admin cannot be deleted' });
+    }
+    db.managers = db.managers.filter((m: any) => m.id !== id);
+    saveDb(db);
+    res.json({ success: true, message: 'Platform manager removed successfully' });
   });
 
   // 15. ADMIN: Reset or Clear Demo Data

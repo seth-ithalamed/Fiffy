@@ -17,13 +17,24 @@ import {
   Sliders,
   AlertCircle,
   LogOut,
+  LogIn,
+  UserPlus,
   Upload,
 } from 'lucide-react';
 import { ALL_INTEREST_TAGS, PROMPT_QUESTIONS_CATALOG, AFRICAN_COUNTRIES } from '../../data/mockData';
 import { Gender, SexualOrientation, ChildrenStatus, CHILDREN_STATUS_CONFIG } from '../../types';
 
 export const ProfileEditor: React.FC = () => {
-  const { currentUser, updateCurrentUser, verifySelfie, showToast, logoutUser, authUser, setIsVerificationModalOpen } = useApp();
+  const {
+    currentUser,
+    updateCurrentUser,
+    verifySelfie,
+    showToast,
+    logoutUser,
+    authUser,
+    openAuthModal,
+    setIsVerificationModalOpen,
+  } = useApp();
 
   const [isSelfieVerifying, setIsSelfieVerifying] = useState<boolean>(false);
   const [selfieCountdown, setSelfieCountdown] = useState<number>(3);
@@ -630,28 +641,67 @@ export const ProfileEditor: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#15082a]/70 border border-white/10">
             <div>
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Active Account Session</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                  Secured
+                <span>Account Status</span>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                    authUser
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  }`}
+                >
+                  {authUser ? 'Authenticated Member' : 'Guest Mode (Not Signed In)'}
                 </span>
               </div>
               <div className="text-[11px] text-purple-200 mt-0.5">
-                Signed in as <strong className="text-white">{currentUser.name}</strong>
+                {authUser ? (
+                  <>
+                    Signed in as <strong className="text-white">{authUser.name}</strong>{' '}
+                    <span className="text-purple-300/70 font-mono text-[10px]">
+                      ({authUser.email || authUser.phone || authUser.contactNumber})
+                    </span>
+                  </>
+                ) : (
+                  <>Not signed in yet. Log in or create an account to save your profile &amp; matches.</>
+                )}
               </div>
               <div className="text-[11px] text-pink-300/90 flex items-center gap-1 mt-1">
                 <Lock className="w-3 h-3 text-pink-400 shrink-0" />
-                <span>Contact number and email are 100% confidential and hidden from everyone.</span>
+                <span>Contact number and email are 100% confidential and hidden from other singles.</span>
               </div>
             </div>
-            <button
-              id="profile-logout-btn"
-              type="button"
-              onClick={logoutUser}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
+
+            {authUser ? (
+              <button
+                id="profile-logout-btn"
+                type="button"
+                onClick={logoutUser}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs transition-colors cursor-pointer active:scale-95"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  id="profile-signin-btn"
+                  type="button"
+                  onClick={() => openAuthModal('login')}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  id="profile-signup-btn"
+                  type="button"
+                  onClick={() => openAuthModal('signup')}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl gradient-fiffy text-white font-bold text-xs transition-colors cursor-pointer shadow-md"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Join Free</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
