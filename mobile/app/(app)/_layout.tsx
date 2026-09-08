@@ -9,6 +9,8 @@ import { MatchCelebrationModal } from '../../src/components/modals/MatchCelebrat
 import { MonetizationModal } from '../../src/components/modals/MonetizationModal';
 import { SafetyModal } from '../../src/components/modals/SafetyModal';
 import { PaymentModal } from '../../src/components/modals/PaymentModal';
+import { FCMNotificationModal } from '../../src/components/modals/FCMNotificationModal';
+import { FCMAlertBanner } from '../../src/components/ui/FCMAlertBanner';
 import { ToastStack } from '../../src/components/ui/Toast';
 
 function TabIcon({ icon, label, focused, badge }: { icon: string; label: string; focused: boolean; badge?: number }) {
@@ -34,7 +36,7 @@ function TabIcon({ icon, label, focused, badge }: { icon: string; label: string;
 }
 
 export default function AppLayout() {
-  const { isLoggedIn, authLoading, matches } = useApp();
+  const { isLoggedIn, authLoading, matches, isFcmModalOpen, setIsFcmModalOpen } = useApp();
   const router = useRouter();
 
   // Guard: if somehow landed here without auth, push to auth
@@ -100,10 +102,15 @@ export default function AppLayout() {
       </Tabs>
 
       {/* Global modals rendered above tabs */}
+      <FCMAlertBanner />
       <MatchCelebrationModal />
       <MonetizationModal />
       <SafetyModal />
       <PaymentModal />
+      <FCMNotificationModal
+        visible={isFcmModalOpen}
+        onClose={() => setIsFcmModalOpen(false)}
+      />
       <ToastStack />
     </>
   );

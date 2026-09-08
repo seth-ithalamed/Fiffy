@@ -91,6 +91,7 @@ export default function ProfileScreen() {
     switchDemoAccount,
     authUser,
     showToast,
+    setIsFcmModalOpen,
   } = useApp();
   const [selfieOpen, setSelfieOpen] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -427,6 +428,30 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             ))}
+          </View>
+
+          {/* FCM Push Notifications */}
+          <View style={styles.card}>
+            <View style={styles.cardRow}>
+              <View>
+                <Text style={styles.cardTitle}>🔔 Push Notifications (FCM)</Text>
+                <Text style={styles.cardSub}>Firebase Cloud Messaging active</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsFcmModalOpen(true)}
+                style={styles.verifyBtn}
+              >
+                <LinearGradient colors={gradientPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.verifyGrad}>
+                  <Text style={styles.verifyText}>Configure &amp; Test →</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.toggleRow, { marginTop: 8 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleLabel}>Channels: Sparks, Chat, Safety Guardian</Text>
+                <Text style={styles.toggleSub}>High-priority background push delivery with sound &amp; haptics</Text>
+              </View>
+            </View>
           </View>
 
           {/* Sign out & Demo switcher */}

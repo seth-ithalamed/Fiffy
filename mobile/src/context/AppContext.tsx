@@ -9,7 +9,9 @@ import {
   DiscoveryFilters,
   ToastItem,
   AuthUser,
+  FCMNotificationPayload,
 } from '../types';
+import { fcmService } from '../services/fcmService';
 import {
   INITIAL_CURRENT_USER,
   MOCK_PROFILES,
@@ -109,6 +111,11 @@ interface AppContextType {
   openPaymentModal: (plan: SubscriptionPlan) => void;
   closePaymentModal: () => void;
   completePayment: () => void;
+
+  // FCM Push Notifications
+  isFcmModalOpen: boolean;
+  setIsFcmModalOpen: (open: boolean) => void;
+  triggerFcmAlert: (payload: Omit<FCMNotificationPayload, 'id' | 'sentAt'>) => Promise<FCMNotificationPayload>;
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -169,6 +176,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [isFcmModalOpen, setIsFcmModalOpen] = useState(false);
+
+  // ── Initialize FCM Push Notifications ─────────────────────────────────────
+  useEffect(() => {
+    fcmService.init(API_BASE).catch((err) => {
+      console.warn('FCM Mobile init warning:', err);
+    });
+  }, []);
 
   // ── Hydrate auth from storage on mount ──────────────────────────────────────
   useEffect(() => {
@@ -501,6 +516,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (data.isMatch && data.match) {
         setMatches((prev) => [data.match, ...prev]);
         setActiveMatchCelebration({ user: profile, isSuperMatch: action === 'superlike' });
+        // Dispatch FCM Push Notification Alert
+        fcmService.dispatchNotification({
+          channelId: 'fiffy_sparks',
+          type: 'new_match',
+          title: '🔥 New Spark on Fiffy!',
+          body: `You and ${profile.name} liked each other! Start your conversation now.`,
+          avatarUrl: profile.photos[0],
+          actionLabel: 'View Match',
+          data: { type: 'new_match', userId: profile.id },
+        });
         return;
       }
     } catch {}
@@ -518,6 +543,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
       setMatches((prev) => [newMatch, ...prev]);
       setActiveMatchCelebration({ user: profile, isSuperMatch: action === 'superlike' });
+
+      // Dispatch FCM Push Notification Alert
+      fcmService.dispatchNotification({
+        channelId: 'fiffy_sparks',
+        type: 'new_match',
+        title: '🔥 New Spark on Fiffy!',
+        body: `You and ${profile.name} liked each other! Start your conversation now.`,
+        avatarUrl: profile.photos[0],
+        actionLabel: 'View Match',
+        data: { type: 'new_match', userId: profile.id },
+      });
     }
   };
 
@@ -676,6 +712,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...prev,
         [matchId]: [...(prev[matchId] ?? []), reply],
       }));
+
+      // Dispatch FCM Push Notification Alert for incoming direct message
+      const partner = activeChatMatch?.user;
+      fcmService.dispatchNotification({
+        channelId: 'fiffy_messages',
+        type: 'new_message',
+        title: `💬 ${partner?.name || 'Your Match'}`,
+        body: reply.text,
+        avatarUrl: partner?.photos[0],
+        actionLabel: 'Reply Now',
+        data: { type: 'new_message', matchId },
+      });
     }, 2000 + Math.random() * 1500);
   };
 
@@ -701,6 +749,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setCurrentUser((prev) => ({ ...prev, boostsRemaining: prev.boostsRemaining - 1 }));
       setBoostTimeRemaining(30 * 60); // 30 minutes
       showToast('Boost Activated! ⚡', 'Your profile is now 10x more visible for 30 minutes.', 'success');
+
+      // Dispatch FCM Push Notification Alert for spotlight boost
+      fcmService.dispatchNotification({
+        channelId: 'fiffy_system',
+        type: 'boost_activated',
+        title: '⚡ Profile Spotlight Live!',
+        body: 'Your profile is boosted 10x in Sparks Deck across Africa & Diaspora for 30 minutes.',
+        actionLabel: 'Explore Sparks',
+        data: { type: 'boost_activated' },
+      });
     }
   };
 
@@ -810,6 +868,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     openPaymentModal,
     closePaymentModal,
     completePayment,
+
+    isFcmModalOpen,
+    setIsFcmModalOpen,
+    triggerFcmAlert: (payload) => fcmService.dispatchNotification(payload),
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

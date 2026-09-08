@@ -1177,6 +1177,55 @@ async function startServer() {
     res.json({ users: safeUsers });
   });
 
+  // 18. FCM: Firebase Cloud Messaging Push Notification Engine
+  app.post('/api/fcm/register-token', (req, res) => {
+    const { token, platform, preferences, userId } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+
+    if (!(db as any).fcmTokens) (db as any).fcmTokens = [];
+
+    const existingIdx = (db as any).fcmTokens.findIndex((t: any) => t.token === token);
+    const tokenRecord = {
+      token,
+      platform: platform || 'web',
+      preferences: preferences || {},
+      userId: userId || 'anonymous',
+      lastSeenAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (existingIdx >= 0) {
+      (db as any).fcmTokens[existingIdx] = { ...(db as any).fcmTokens[existingIdx], ...tokenRecord };
+    } else {
+      (db as any).fcmTokens.push(tokenRecord);
+    }
+
+    saveDb(db);
+    res.json({ success: true, registered: true, totalDevices: (db as any).fcmTokens.length });
+  });
+
+  app.get('/api/fcm/tokens', (req, res) => {
+    res.json({ tokens: (db as any).fcmTokens || [], total: ((db as any).fcmTokens || []).length });
+  });
+
+  app.post('/api/fcm/send-test', (req, res) => {
+    const { title, body, channelId, type, data } = req.body;
+    res.json({
+      success: true,
+      messageId: `projects/fiffys-matchmaking/messages/fcm-${Date.now()}`,
+      dispatchedTo: ((db as any).fcmTokens || []).length || 1,
+      payload: {
+        title: title || 'Fiffy Notification',
+        body: body || 'You have an update on Fiffy',
+        channelId: channelId || 'fiffy_sparks',
+        type: type || 'test_alert',
+        data: data || {},
+      },
+    });
+  });
+
   // -------------------------------------------------------------
   // VITE & STATIC MIDDLEWARE
   // -------------------------------------------------------------

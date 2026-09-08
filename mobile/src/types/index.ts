@@ -169,3 +169,44 @@ export interface AuthUser {
   avatarUrl?: string;
   country?: string;
 }
+
+// ─── Firebase Cloud Messaging (FCM) Types ─────────────────────────────────────
+export type FCMChannelId = 'fiffy_sparks' | 'fiffy_messages' | 'fiffy_safety' | 'fiffy_system';
+
+export type FCMNotificationType =
+  | 'new_match'
+  | 'new_message'
+  | 'safety_alert'
+  | 'boost_activated'
+  | 'single_active_chat'
+  | 'admin_broadcast'
+  | 'test_alert';
+
+export interface FCMNotificationPayload {
+  id: string;
+  channelId: FCMChannelId;
+  type: FCMNotificationType;
+  title: string;
+  body: string;
+  sentAt: string;
+  data?: {
+    matchId?: string;
+    userId?: string;
+    senderName?: string;
+    senderPhoto?: string;
+    url?: string;
+    [key: string]: any;
+  };
+  avatarUrl?: string;
+  actionLabel?: string;
+}
+
+export interface FCMNotificationPreferences {
+  sparksAndMatches: boolean;
+  directMessages: boolean;
+  safetyReminders: boolean;
+  promotionsAndBoosts: boolean;
+  seriousDatingAudits: boolean;
+  soundEnabled: boolean;
+  vibrationEnabled: boolean;
+}
