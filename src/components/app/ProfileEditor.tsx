@@ -17,12 +17,24 @@ import {
   Sliders,
   AlertCircle,
   LogOut,
+  LogIn,
+  UserPlus,
+  Upload,
 } from 'lucide-react';
 import { ALL_INTEREST_TAGS, PROMPT_QUESTIONS_CATALOG, AFRICAN_COUNTRIES } from '../../data/mockData';
-import { Gender, SexualOrientation } from '../../types';
+import { Gender, SexualOrientation, ChildrenStatus, CHILDREN_STATUS_CONFIG } from '../../types';
 
 export const ProfileEditor: React.FC = () => {
-  const { currentUser, updateCurrentUser, verifySelfie, showToast, logoutUser, authUser } = useApp();
+  const {
+    currentUser,
+    updateCurrentUser,
+    verifySelfie,
+    showToast,
+    logoutUser,
+    authUser,
+    openAuthModal,
+    setIsVerificationModalOpen,
+  } = useApp();
 
   const [isSelfieVerifying, setIsSelfieVerifying] = useState<boolean>(false);
   const [selfieCountdown, setSelfieCountdown] = useState<number>(3);
@@ -44,32 +56,26 @@ export const ProfileEditor: React.FC = () => {
   const completeness = calculateCompleteness();
 
   const handleStartVerification = () => {
-    setIsSelfieVerifying(true);
-    setSelfieCountdown(3);
-    const interval = setInterval(() => {
-      setSelfieCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setIsSelfieVerifying(false);
-          verifySelfie();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    setIsVerificationModalOpen(true);
   };
 
   const handleAddSamplePhoto = () => {
+    if (currentUser.photos.length >= 5) {
+      showToast('Photo Limit (5 Max)', 'Each profile is strictly limited to 5 photos.');
+      return;
+    }
     const sampleAvatars = [
       'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
     ];
     const available = sampleAvatars.filter((url) => !currentUser.photos.includes(url));
     if (available.length > 0) {
       updateCurrentUser({ photos: [...currentUser.photos, available[0]] });
+      showToast('Photo Added', `Added photo (${currentUser.photos.length + 1}/5 allowed)`);
     } else {
       showToast('Maximum Photos', 'You have already added multiple high-resolution profile photos.');
     }
@@ -155,18 +161,50 @@ export const ProfileEditor: React.FC = () => {
           )}
         </div>
 
-        {/* 1. PHOTO GRID (6 Slots) */}
+        {/* 1. PHOTO GRID (5 Slots Maximum) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-display font-bold text-base text-white">
-              Photos ({currentUser.photos.length}/6)
-            </h3>
-            <span className="text-xs text-purple-300/70">
-              First photo is your main discovery card
-            </span>
+            <div>
+              <h3 className="font-display font-bold text-base text-white flex items-center gap-2">
+                <span>Photos ({currentUser.photos.length}/5)</span>
+                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-semibold">
+                  5 Max Limit
+                </span>
+              </h3>
+              <p className="text-[11px] text-purple-300/70 mt-0.5">
+                Each profile is limited to 5 photos to keep connections genuine and high-quality. First photo is your main discovery card.
+              </p>
+            </div>
+            {currentUser.photos.length < 5 && (
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/30 text-purple-200 text-xs font-semibold transition-all">
+                <Upload className="w-3.5 h-3.5 text-pink-400" />
+                <span>Upload File</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (currentUser.photos.length >= 5) {
+                      showToast('Photo Limit (5 Max)', 'You can only add up to 5 photos per profile.');
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      if (typeof reader.result === 'string') {
+                        updateCurrentUser({ photos: [...currentUser.photos, reader.result] });
+                        showToast('Photo Uploaded', `Photo added successfully (${currentUser.photos.length + 1}/5).`);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
             {(currentUser.photos || []).map((url, idx) => (
               <div
                 key={idx}
@@ -179,10 +217,13 @@ export const ProfileEditor: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
                 {idx === 0 && (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-pink-600 text-white text-[9px] font-extrabold uppercase">
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-pink-600 text-white text-[9px] font-extrabold uppercase shadow">
                     Main
                   </span>
                 )}
+                <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-white text-[9px] font-mono">
+                  {idx + 1}/5
+                </span>
                 <button
                   onClick={() => handleRemovePhoto(idx)}
                   className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-rose-600 text-white opacity-0 group-hover:opacity-100 transition-all"
@@ -193,15 +234,16 @@ export const ProfileEditor: React.FC = () => {
               </div>
             ))}
 
-            {currentUser.photos.length < 6 && (
+            {currentUser.photos.length < 5 && (
               <button
                 onClick={handleAddSamplePhoto}
-                className="aspect-[3/4] rounded-2xl border-2 border-dashed border-purple-500/40 hover:border-pink-500 bg-[#140828]/40 hover:bg-[#1f0a38] flex flex-col items-center justify-center text-purple-300 hover:text-white transition-all group"
+                className="aspect-[3/4] rounded-2xl border-2 border-dashed border-purple-500/40 hover:border-pink-500 bg-[#140828]/40 hover:bg-[#1f0a38] flex flex-col items-center justify-center text-purple-300 hover:text-white transition-all group p-2 text-center"
               >
-                <div className="w-10 h-10 rounded-full bg-purple-950/80 group-hover:bg-pink-600/30 flex items-center justify-center mb-1 transition-colors">
-                  <Plus className="w-5 h-5 text-pink-400" />
+                <div className="w-9 h-9 rounded-full bg-purple-950/80 group-hover:bg-pink-600/30 flex items-center justify-center mb-1 transition-colors">
+                  <Plus className="w-4 h-4 text-pink-400" />
                 </div>
                 <span className="text-xs font-semibold">Add Photo</span>
+                <span className="text-[10px] text-purple-400/60">({5 - currentUser.photos.length} left)</span>
               </button>
             )}
           </div>
@@ -424,6 +466,48 @@ export const ProfileEditor: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Children / Family Status (Serious Dating Transparency) */}
+          <div className="pt-3 border-t border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-2">
+                <span>Do you have children? (Family Status)</span>
+              </label>
+              <span className="text-[11px] font-semibold text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded-full border border-pink-500/20">
+                Cheating-Free Transparency 🛡️
+              </span>
+            </div>
+            <p className="text-xs text-purple-300/70">
+              Clear relationship expectations: define whether you have kids or want them in the future.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+              {(Object.keys(CHILDREN_STATUS_CONFIG) as ChildrenStatus[]).map((statusKey) => {
+                const config = CHILDREN_STATUS_CONFIG[statusKey];
+                const isSelected = (currentUser.childrenStatus || 'prefer_not_to_say') === statusKey;
+                return (
+                  <button
+                    key={statusKey}
+                    type="button"
+                    onClick={() => updateCurrentUser({ childrenStatus: statusKey })}
+                    className={`p-3 rounded-2xl border text-left flex flex-col gap-1 transition-all ${
+                      isSelected
+                        ? 'bg-gradient-to-r from-pink-600/30 to-purple-600/30 border-pink-500 text-white shadow-lg shadow-pink-500/10 scale-[1.02]'
+                        : 'bg-[#16092d]/60 border-white/10 text-purple-200 hover:border-purple-400/40 hover:bg-[#1f0b3d]/70'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-base">{config.icon}</span>
+                      {isSelected && (
+                        <span className="w-2 h-2 rounded-full bg-pink-400 shadow-sm shadow-pink-400" />
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-white">{config.label}</span>
+                    <span className="text-[10px] text-purple-300/70 line-clamp-1">{config.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* 4. ICEBREAKER PROMPTS */}
@@ -557,28 +641,67 @@ export const ProfileEditor: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#15082a]/70 border border-white/10">
             <div>
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Active Account Session</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                  Secured
+                <span>Account Status</span>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                    authUser
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  }`}
+                >
+                  {authUser ? 'Authenticated Member' : 'Guest Mode (Not Signed In)'}
                 </span>
               </div>
               <div className="text-[11px] text-purple-200 mt-0.5">
-                Signed in as <strong className="text-white">{currentUser.name}</strong>
+                {authUser ? (
+                  <>
+                    Signed in as <strong className="text-white">{authUser.name}</strong>{' '}
+                    <span className="text-purple-300/70 font-mono text-[10px]">
+                      ({authUser.email || authUser.phone || authUser.contactNumber})
+                    </span>
+                  </>
+                ) : (
+                  <>Not signed in yet. Log in or create an account to save your profile &amp; matches.</>
+                )}
               </div>
               <div className="text-[11px] text-pink-300/90 flex items-center gap-1 mt-1">
                 <Lock className="w-3 h-3 text-pink-400 shrink-0" />
-                <span>Contact number and email are 100% confidential and hidden from everyone.</span>
+                <span>Contact number and email are 100% confidential and hidden from other singles.</span>
               </div>
             </div>
-            <button
-              id="profile-logout-btn"
-              type="button"
-              onClick={logoutUser}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
+
+            {authUser ? (
+              <button
+                id="profile-logout-btn"
+                type="button"
+                onClick={logoutUser}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-xs transition-colors cursor-pointer active:scale-95"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  id="profile-signin-btn"
+                  type="button"
+                  onClick={() => openAuthModal('login')}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  id="profile-signup-btn"
+                  type="button"
+                  onClick={() => openAuthModal('signup')}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl gradient-fiffy text-white font-bold text-xs transition-colors cursor-pointer shadow-md"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Join Free</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

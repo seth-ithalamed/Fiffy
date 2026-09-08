@@ -1,4 +1,4 @@
-import { CurrentUser, UserProfile, Match, Message, SubscriptionPlan } from '../types';
+import { CurrentUser, UserProfile, Match, Message, SubscriptionPlan, ChildrenStatus } from '../types';
 
 export interface CountryOption {
   code: string;

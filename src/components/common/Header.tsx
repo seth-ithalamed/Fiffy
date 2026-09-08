@@ -41,7 +41,7 @@ export const Header: React.FC = () => {
   };
 
   const navSurfaces: { id: SurfaceType; label: string; icon: React.FC<{ className?: string }> }[] = [
-    ...(!authUser ? [{ id: 'marketing' as SurfaceType, label: 'About & Features', icon: Globe }] : []),
+    { id: 'marketing' as SurfaceType, label: 'About & Features', icon: Globe },
     { id: 'web-app' as SurfaceType, label: 'Match Making Deck', icon: Flame },
     { id: 'admin' as SurfaceType, label: 'Admin Portal', icon: ShieldCheck },
   ];

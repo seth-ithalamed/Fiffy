@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,52 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { AFRICAN_COUNTRIES } from '../data/mockData';
 import { Colors, gradientPink, gradientDark } from '../components/ui/Colors';
 import { GradientButton } from '../components/ui/GradientButton';
+
+const DEMO_PREVIEWS = [
+  {
+    id: 'lerato.khumalo@fiffys.com',
+    name: 'Lerato Khumalo',
+    flag: '🇿🇦',
+    role: 'Product Designer',
+    city: 'Johannesburg',
+    photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+    tier: 'Gold VIP',
+  },
+  {
+    id: 'amara.okafor@demo.fiffys.com',
+    name: 'Amara Okafor',
+    flag: '🇳🇬',
+    role: 'Medical Doctor',
+    city: 'Lagos',
+    photo: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=300&auto=format&fit=crop&q=80',
+    tier: 'Gold VIP',
+  },
+  {
+    id: 'thabo.ndlovu@demo.fiffys.com',
+    name: 'Thabo Ndlovu',
+    flag: '🇿🇦',
+    role: 'Architect',
+    city: 'Sandton',
+    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
+    tier: 'Gold VIP',
+  },
+  {
+    id: 'kwame.mensah@demo.fiffys.com',
+    name: 'Kwame Mensah',
+    flag: '🇬🇭',
+    role: 'Investment Banker',
+    city: 'Accra',
+    photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
+    tier: 'Gold VIP',
+  },
+];
 
 const calculateAge = (dob: string): number => {
   if (!dob) return 0;
@@ -31,13 +71,22 @@ const calculateAge = (dob: string): number => {
 };
 
 export default function AuthScreen() {
-  const { loginUser, signupUser, showToast } = useApp();
+  const router = useRouter();
+  const { loginUser, signupUser, showToast, isLoggedIn } = useApp();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
+
+  // If already logged in, immediately redirect to app deck
+  useEffect(() => {
+    if (isLoggedIn) {
+      router.replace('/');
+    }
+  }, [isLoggedIn]);
 
   // Login state
   const [loginId, setLoginId] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [activeDemoId, setActiveDemoId] = useState<string | null>(null);
   const [loginError, setLoginError] = useState('');
 
   // Signup state
@@ -66,18 +115,29 @@ export default function AuthScreen() {
     setLoginLoading(true);
     const res = await loginUser(loginId.trim(), loginPass);
     setLoginLoading(false);
-    if (!res.success) setLoginError(res.error || 'Login failed.');
-    else showToast('Welcome back!', 'Successfully signed in.', 'success');
+    if (!res.success) {
+      setLoginError(res.error || 'Login failed.');
+    } else {
+      showToast('Welcome back!', 'Successfully signed in.', 'success');
+      router.replace('/');
+    }
   };
 
   const handleDemoLogin = async (id: string, pass: string) => {
+    setLoginError('');
+    setActiveDemoId(id);
     setLoginId(id);
     setLoginPass(pass);
     setLoginLoading(true);
     const res = await loginUser(id, pass);
     setLoginLoading(false);
-    if (!res.success) setLoginError(res.error || 'Demo login failed.');
-    else showToast('Demo Account', `Signed in successfully.`, 'success');
+    setActiveDemoId(null);
+    if (!res.success) {
+      setLoginError(res.error || 'Demo login failed.');
+    } else {
+      showToast('Demo Account', `Signed in successfully.`, 'success');
+      router.replace('/');
+    }
   };
 
   const handleSignup = async () => {
@@ -109,8 +169,12 @@ export default function AuthScreen() {
       datingGoal: 'Long-term relationship',
     });
     setSignupLoading(false);
-    if (!res.success) setSignupError(res.error || 'Registration failed.');
-    else showToast('Account Created!', 'Welcome to Fiffy\'s Match Making!', 'success');
+    if (!res.success) {
+      setSignupError(res.error || 'Registration failed.');
+    } else {
+      showToast('Account Created!', 'Welcome to Fiffy\'s Match Making!', 'success');
+      router.replace('/');
+    }
   };
 
   return (
@@ -172,6 +236,39 @@ export default function AuthScreen() {
               <View style={styles.form}>
                 {!!loginError && <View style={styles.errorBox}><Text style={styles.errorText}>{loginError}</Text></View>}
 
+                {/* 1-Tap Fast Demo Banner */}
+                <TouchableOpacity
+                  style={styles.heroDemoBanner}
+                  onPress={() => handleDemoLogin('lerato.khumalo@fiffys.com', 'password123')}
+                  activeOpacity={0.85}
+                  disabled={loginLoading}
+                >
+                  <LinearGradient
+                    colors={['rgba(236,72,153,0.3)', 'rgba(168,85,247,0.2)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.heroDemoGrad}
+                  >
+                    <Image source={{ uri: DEMO_PREVIEWS[0].photo }} style={styles.heroDemoAvatar} />
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.heroDemoTitle}>⚡ Fast 1-Tap Demo Access</Text>
+                        <View style={styles.heroDemoBadge}>
+                          <Text style={styles.heroDemoBadgeText}>Ready</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.heroDemoSub}>
+                        Enter instantly as {DEMO_PREVIEWS[0].name} (🇿🇦 {DEMO_PREVIEWS[0].city})
+                      </Text>
+                    </View>
+                    {activeDemoId === DEMO_PREVIEWS[0].id ? (
+                      <ActivityIndicator size="small" color={Colors.pinkLight} />
+                    ) : (
+                      <Text style={styles.heroDemoArrow}>→</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+
                 <Text style={styles.label}>Email or Contact Number</Text>
                 <TextInput
                   style={styles.input}
@@ -202,23 +299,40 @@ export default function AuthScreen() {
 
                 {/* Demo accounts */}
                 <View style={styles.demoSection}>
-                  <Text style={styles.demoLabel}>DEMO ACCOUNTS — 1-TAP LOGIN</Text>
-                  {[
-                    { id: 'lerato.khumalo@fiffys.com', name: '🇿🇦 Lerato Khumalo', sub: 'Johannesburg, South Africa' },
-                    { id: 'amara.okafor@demo.fiffys.com', name: '🇳🇬 Amara Okafor', sub: 'Lagos, Nigeria' },
-                    { id: 'thabo.ndlovu@demo.fiffys.com', name: '🇿🇦 Thabo Ndlovu', sub: 'Sandton, South Africa' },
-                    { id: 'kwame.mensah@demo.fiffys.com', name: '🇬🇭 Kwame Mensah', sub: 'Accra, Ghana' },
-                  ].map((d) => (
-                    <TouchableOpacity
-                      key={d.id}
-                      style={styles.demoBtn}
-                      onPress={() => handleDemoLogin(d.id, 'password123')}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={styles.demoBtnName}>{d.name}</Text>
-                      <Text style={styles.demoBtnSub}>{d.sub}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  <View style={styles.demoSectionHeader}>
+                    <Text style={styles.demoLabel}>DEMO ACCOUNTS (OFFLINE READY)</Text>
+                    <Text style={styles.demoHelper}>1-Tap to test with matches & chats</Text>
+                  </View>
+                  {DEMO_PREVIEWS.map((d) => {
+                    const isSpinning = activeDemoId === d.id;
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={[styles.demoCard, isSpinning && styles.demoCardActive]}
+                        onPress={() => handleDemoLogin(d.id, 'password123')}
+                        activeOpacity={0.75}
+                        disabled={loginLoading}
+                      >
+                        <Image source={{ uri: d.photo }} style={styles.demoAvatar} />
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.demoBtnName}>{d.flag} {d.name}</Text>
+                            <View style={styles.demoTierBadge}>
+                              <Text style={styles.demoTierText}>{d.tier}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.demoBtnSub}>{d.role} • {d.city}</Text>
+                        </View>
+                        {isSpinning ? (
+                          <ActivityIndicator size="small" color={Colors.pinkLight} />
+                        ) : (
+                          <View style={styles.demoLoginPill}>
+                            <Text style={styles.demoLoginPillText}>Sign In</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -486,15 +600,81 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#fca5a5', fontSize: 12 },
   demoSection: { marginTop: 24, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 20 },
-  demoLabel: { color: Colors.purpleDim, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 10, textTransform: 'uppercase' },
-  demoBtn: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 14,
+  demoSectionHeader: { marginBottom: 12 },
+  demoLabel: { color: Colors.purpleDim, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
+  demoHelper: { color: Colors.pinkLight, fontSize: 11, fontWeight: '600', marginTop: 2 },
+  heroDemoBanner: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(236,72,153,0.4)',
+    marginBottom: 16,
+  },
+  heroDemoGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+  },
+  heroDemoAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: Colors.pinkLight,
+  },
+  heroDemoTitle: { color: Colors.white, fontSize: 13, fontWeight: '800' },
+  heroDemoBadge: {
+    backgroundColor: 'rgba(52,211,153,0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.4)',
+  },
+  heroDemoBadgeText: { color: '#34d399', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  heroDemoSub: { color: Colors.purpleText, fontSize: 11, marginTop: 2 },
+  heroDemoArrow: { color: Colors.pinkLight, fontSize: 18, fontWeight: '800', paddingRight: 4 },
+  demoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 12,
+    padding: 10,
     marginBottom: 8,
+    gap: 10,
   },
-  demoBtnName: { color: Colors.pinkLight, fontSize: 13, fontWeight: '700' },
+  demoCardActive: {
+    borderColor: Colors.pinkLight,
+    backgroundColor: 'rgba(236,72,153,0.1)',
+  },
+  demoAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  demoBtnName: { color: Colors.white, fontSize: 13, fontWeight: '700' },
   demoBtnSub: { color: Colors.purpleDim, fontSize: 11, marginTop: 2 },
+  demoTierBadge: {
+    backgroundColor: 'rgba(234,179,8,0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(234,179,8,0.3)',
+  },
+  demoTierText: { color: '#facc15', fontSize: 9, fontWeight: '800' },
+  demoLoginPill: {
+    backgroundColor: 'rgba(236,72,153,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(236,72,153,0.35)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  demoLoginPillText: { color: Colors.pinkLight, fontSize: 11, fontWeight: '700' },
 });

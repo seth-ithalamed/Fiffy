@@ -12,6 +12,7 @@ import { SafetyPanicModal } from './components/app/SafetyPanicModal';
 import { MonetizationModal } from './components/app/MonetizationModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { PaymentModal } from './components/app/PaymentModal';
+import { VerificationModal } from './components/app/VerificationModal';
 import {
   Flame,
   MessageCircle,
@@ -137,6 +138,7 @@ const MainAppContent: React.FC = () => {
       <MonetizationModal />
       <AuthModal />
       <PaymentModal />
+      <VerificationModal />
 
       {/* TOAST NOTIFICATIONS STACK */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
