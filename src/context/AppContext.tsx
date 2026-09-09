@@ -20,17 +20,12 @@ import {
 } from '../types';
 import {
   INITIAL_CURRENT_USER,
-  MOCK_PROFILES,
-  INITIAL_MATCHES,
-  INITIAL_MESSAGES,
-  INITIAL_REPORTED_ITEMS,
   DEFAULT_SUBSCRIPTION_PLANS,
   DEFAULT_PAYFAST_CONFIG,
   INITIAL_ADMIN_SETTINGS,
   AFRICAN_COUNTRIES,
   INITIAL_TESTIMONIALS,
   INITIAL_PLATFORM_MANAGERS,
-  getDemoAccount,
 } from '../data/mockData';
 import { hasContactInfo, maskContactInfo } from '../lib/privacy';
 import { apiEndpoint } from '../lib/api';
@@ -276,16 +271,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Current User Profile
   const [currentUser, setCurrentUser] = useState<CurrentUser>(INITIAL_CURRENT_USER);
 
-  // Deck & Profiles
-  const [deckProfiles, setDeckProfiles] = useState<UserProfile[]>(MOCK_PROFILES);
+  // Deck & Profiles (Hydrated purely from real database)
+  const [deckProfiles, setDeckProfiles] = useState<UserProfile[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
   const [swipedHistory, setSwipedHistory] = useState<{ profile: UserProfile; action: 'like' | 'pass' | 'superlike' }[]>([]);
 
-  // Matches & Chat
-  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
+  // Matches & Chat (Hydrated purely from real database)
+  const [matches, setMatches] = useState<Match[]>([]);
   const [activeMatchCelebration, setActiveMatchCelebration] = useState<{ user: UserProfile; isSuperMatch?: boolean } | null>(null);
-  const [activeChatMatchId, setActiveChatMatchId] = useState<string | null>('match-1');
-  const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
+  const [activeChatMatchId, setActiveChatMatchId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [isPartnerTyping, setIsPartnerTyping] = useState<boolean>(false);
   const [pendingChatSwitch, setPendingChatSwitch] = useState<{
     targetMatch: Match;
@@ -310,7 +305,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Admin Settings & Moderation
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(INITIAL_ADMIN_SETTINGS);
-  const [reportedItems, setReportedItems] = useState<ReportedItem[]>(INITIAL_REPORTED_ITEMS);
+  const [reportedItems, setReportedItems] = useState<ReportedItem[]>([]);
   const [bannedUserIds, setBannedUserIds] = useState<string[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>(INITIAL_TESTIMONIALS);
   const [adminUsersList, setAdminUsersList] = useState<any[]>([]);
@@ -409,15 +404,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Synchronize with backend on mount
   useEffect(() => {
-    // 1. Fetch profiles
+    // 1. Fetch profiles from real database
     fetchApi('/api/profiles')
       .then((res) => res.json())
       .then((data) => {
-        if (data.profiles && Array.isArray(data.profiles) && data.profiles.length > 0) {
+        if (Array.isArray(data.profiles)) {
           setDeckProfiles(data.profiles);
+        } else {
+          setDeckProfiles([]);
         }
       })
-      .catch((e) => console.warn('Using local profiles fallback', e));
+      .catch((e) => {
+        console.warn('Could not fetch profiles from backend', e);
+        setDeckProfiles([]);
+      });
 
     // 2. Fetch plans & currency set by admin
     refreshPlans();
@@ -520,38 +520,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loginUser = async (identifier: string, pass: string) => {
-    // 1. Instant check for Demo accounts (works 0ms latency)
-    const demoCfg = getDemoAccount(identifier);
-    if (demoCfg) {
-      const demoAuthUser: AuthUser = {
-        id: demoCfg.user.id,
-        name: demoCfg.user.name,
-        email: demoCfg.user.email || identifier,
-        phone: demoCfg.user.phone,
-        role: 'user',
-        token: `demo-token-${demoCfg.user.id}`,
-      };
-      setAuthUser(demoAuthUser);
-      setCurrentUser(demoCfg.user);
-      setMatches(demoCfg.matches);
-      setMessages(demoCfg.messages);
-      setActiveChatMatchId(demoCfg.matches[0]?.id || null);
-      setDeckProfiles(MOCK_PROFILES.filter((p) => p.id !== demoCfg.user.id && p.name !== demoCfg.user.name));
-      setCurrentCardIndex(0);
-      localStorage.setItem('fiffy_auth_user', JSON.stringify(demoAuthUser));
-      setActiveSurfaceState('web-app');
-      setInAppTab('discover');
-      closeAuthModal();
-      showToast('Welcome!', `Logged in instantly as ${demoCfg.user.name}.`, 'success');
-      // Background sync to backend
-      fetchApi('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim(), password: pass }),
-      }).catch(() => {});
-      return { success: true, user: demoAuthUser };
-    }
-
     try {
       const res = await fetchApi('/api/auth/login', {
         method: 'POST',
@@ -578,54 +546,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: true, user: parsed.data.user };
       }
 
-      // If backend explicitly rejected with JSON error (and not an offline HTML fallback)
-      if (parsed.data?.error && !parsed.isHtmlFallback) {
-        return { success: false, error: parsed.data.error };
-      }
-
-      // Offline / standalone demo fallback: allow logging in with any demo credentials
-      const cleanName = identifier.split('@')[0].replace(/[._]/g, ' ');
-      const fallbackUser: AuthUser = {
-        id: `user-${Date.now()}`,
-        name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1) || 'Community Member',
-        email: identifier.includes('@') ? identifier : `${identifier}@demo.fiffys.com`,
-        phone: identifier.startsWith('+') ? identifier : '+27 82 555 0199',
-        isPremium: true,
-        premiumTier: 'elite',
-        role: 'user',
-        isDemo: true,
-        token: `demo-token-${Date.now()}`,
+      return {
+        success: false,
+        error: parsed.data?.error || 'Invalid contact number/email or password. Please try again.',
       };
-      setAuthUser(fallbackUser);
-      setCurrentUser((prev) => ({ ...prev, ...fallbackUser }));
-      localStorage.setItem('fiffy_auth_user', JSON.stringify(fallbackUser));
-      setActiveSurfaceState('web-app');
-      setInAppTab('discover');
-      closeAuthModal();
-      showToast('Welcome!', `Logged in as ${fallbackUser.name} (Standalone Demo).`, 'success');
-      return { success: true, user: fallbackUser };
     } catch {
-      // Offline fallback
-      const cleanName = identifier.split('@')[0].replace(/[._]/g, ' ');
-      const fallbackUser: AuthUser = {
-        id: `user-${Date.now()}`,
-        name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1) || 'Community Member',
-        email: identifier.includes('@') ? identifier : `${identifier}@demo.fiffys.com`,
-        phone: identifier.startsWith('+') ? identifier : '+27 82 555 0199',
-        isPremium: true,
-        premiumTier: 'elite',
-        role: 'user',
-        isDemo: true,
-        token: `demo-token-${Date.now()}`,
+      return {
+        success: false,
+        error: 'Unable to connect to database backend. Please check your network and try again.',
       };
-      setAuthUser(fallbackUser);
-      setCurrentUser((prev) => ({ ...prev, ...fallbackUser }));
-      localStorage.setItem('fiffy_auth_user', JSON.stringify(fallbackUser));
-      setActiveSurfaceState('web-app');
-      setInAppTab('discover');
-      closeAuthModal();
-      showToast('Welcome!', `Logged in as ${fallbackUser.name} (Standalone Demo).`, 'success');
-      return { success: true, user: fallbackUser };
     }
   };
 
@@ -651,50 +580,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: true, user: parsed.data.user };
       }
 
-      if (parsed.data?.error && !parsed.isHtmlFallback) {
-        return { success: false, error: parsed.data.error };
-      }
-
-      // Standalone demo fallback: register locally
-      const localNewUser: AuthUser = {
-        id: `user-${Date.now()}`,
-        name: userData.name || 'New Member',
-        email: userData.email || 'member@fiffys.com',
-        phone: userData.phone || userData.contactNumber || '+27 82 555 0188',
-        isPremium: true,
-        premiumTier: 'elite',
-        role: 'user',
-        isDemo: true,
-        token: `demo-token-${Date.now()}`,
+      return {
+        success: false,
+        error: parsed.data?.error || 'Could not complete registration. Please check your information.',
       };
-      setAuthUser(localNewUser);
-      setCurrentUser((prev) => ({ ...prev, ...userData, ...localNewUser }));
-      localStorage.setItem('fiffy_auth_user', JSON.stringify(localNewUser));
-      setActiveSurfaceState('web-app');
-      setInAppTab('discover');
-      closeAuthModal();
-      showToast('Account Created!', `Welcome to Fiffy’s, ${localNewUser.name}!`, 'success');
-      return { success: true, user: localNewUser };
     } catch {
-      const localNewUser: AuthUser = {
-        id: `user-${Date.now()}`,
-        name: userData.name || 'New Member',
-        email: userData.email || 'member@fiffys.com',
-        phone: userData.phone || userData.contactNumber || '+27 82 555 0188',
-        isPremium: true,
-        premiumTier: 'elite',
-        role: 'user',
-        isDemo: true,
-        token: `demo-token-${Date.now()}`,
+      return {
+        success: false,
+        error: 'Registration request failed. Unable to reach backend database.',
       };
-      setAuthUser(localNewUser);
-      setCurrentUser((prev) => ({ ...prev, ...userData, ...localNewUser }));
-      localStorage.setItem('fiffy_auth_user', JSON.stringify(localNewUser));
-      setActiveSurfaceState('web-app');
-      setInAppTab('discover');
-      closeAuthModal();
-      showToast('Account Created!', `Welcome to Fiffy’s, ${localNewUser.name}!`, 'success');
-      return { success: true, user: localNewUser };
     }
   };
 
@@ -1334,13 +1228,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await fetchApi('/api/admin/reset-demo-data', { method: 'POST' });
       const pRes = await fetchApi('/api/profiles');
       const pData = await pRes.json();
-      if (pData.profiles) {
+      if (Array.isArray(pData?.profiles)) {
         setDeckProfiles(pData.profiles);
+      } else {
+        setDeckProfiles([]);
       }
       refreshActiveSinglesStats();
-      showToast('Demo Singles Restored', 'Seeded with authentic African profiles.', 'info');
+      showToast('Database Synchronized', 'Profiles refreshed from live database.', 'info');
     } catch (e) {
-      setDeckProfiles(MOCK_PROFILES);
+      setDeckProfiles([]);
       refreshActiveSinglesStats();
     }
   };
@@ -1425,34 +1321,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const res = await fetchApi('/api/admin/users');
       const parsed = await safeFetchJson(res);
-      if (parsed.success && parsed.data?.users) {
+      if (parsed.success && Array.isArray(parsed.data?.users)) {
         setAdminUsersList(parsed.data.users);
         return;
       }
-      // Demo fallback: populate from MOCK_PROFILES if backend is offline/HTML
-      setAdminUsersList((prev) => {
-        if (prev.length > 0) return prev;
-        return MOCK_PROFILES.map((p, idx) => ({
-          ...p,
-          email: `${p.name.toLowerCase().replace(/\s+/g, '.')}@demo.fiffys.com`,
-          contactNumber: '+27 82 555 010' + idx,
-          isExempt: idx === 0 || p.verified,
-          role: 'user',
-          createdAt: new Date().toISOString(),
-        }));
-      });
+      setAdminUsersList([]);
     } catch {
-      setAdminUsersList((prev) => {
-        if (prev.length > 0) return prev;
-        return MOCK_PROFILES.map((p, idx) => ({
-          ...p,
-          email: `${p.name.toLowerCase().replace(/\s+/g, '.')}@demo.fiffys.com`,
-          contactNumber: '+27 82 555 010' + idx,
-          isExempt: idx === 0 || p.verified,
-          role: 'user',
-          createdAt: new Date().toISOString(),
-        }));
-      });
+      setAdminUsersList([]);
     }
   };
 

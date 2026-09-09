@@ -375,41 +375,61 @@ export const DiscoveryView: React.FC = () => {
         ) : (
           /* GRID VIEW MODE */
           <div className="w-full max-w-5xl h-full overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 pb-24">
-              {(filteredProfiles || []).map((profile) => (
-                <div
-                  key={profile.id}
-                  id={`profile-grid-item-${profile.id}`}
-                  onClick={() => setInspectedProfile(profile)}
-                  className="group relative rounded-2xl overflow-hidden bg-[#130726] border border-white/10 hover:border-pink-500/50 transition-all cursor-pointer aspect-[3/4] shadow-lg"
-                >
-                  <img
-                    src={profile.photos[0]}
-                    alt={profile.name}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-
-                  {/* Flag Tag */}
-                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-white text-[11px] font-bold border border-white/10">
-                    {profile.countryFlag || '🇿🇦'} {profile.city || profile.location.split(',')[0]}
-                  </div>
-
-                  <div className="absolute bottom-2.5 left-2.5 right-2.5">
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-sm text-white">
-                        {profile.name}, {profile.age}
-                      </span>
-                      {profile.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
-                    </div>
-                    <p className="text-[11px] text-purple-200/80 truncate mt-0.5">
-                      {maskContactInfo(profile.job || profile.bio)}
-                    </p>
-                  </div>
+            {!filteredProfiles || filteredProfiles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-72 text-center p-6 my-auto">
+                <div className="w-16 h-16 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 mb-4">
+                  <Globe className="w-8 h-8" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-xl font-bold font-display text-white">
+                  No Singles Found in {filters.targetCountry === 'all' ? 'this filter' : filters.targetCountry}
+                </h3>
+                <p className="text-xs text-purple-200/70 mt-2 max-w-xs">
+                  Expand your horizons by exploring all African countries or checking back as new singles register!
+                </p>
+                <button
+                  onClick={() => updateFilters({ targetCountry: 'all' })}
+                  className="mt-5 px-6 py-2.5 rounded-2xl gradient-fiffy text-white text-xs font-bold shadow-lg shadow-pink-500/25 hover:brightness-110"
+                >
+                  🌍 Explore All African Countries
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 pb-24">
+                {filteredProfiles.map((profile) => (
+                  <div
+                    key={profile.id}
+                    id={`profile-grid-item-${profile.id}`}
+                    onClick={() => setInspectedProfile(profile)}
+                    className="group relative rounded-2xl overflow-hidden bg-[#130726] border border-white/10 hover:border-pink-500/50 transition-all cursor-pointer aspect-[3/4] shadow-lg"
+                  >
+                    <img
+                      src={profile.photos[0]}
+                      alt={profile.name}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+                    {/* Flag Tag */}
+                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-white text-[11px] font-bold border border-white/10">
+                      {profile.countryFlag || '🇿🇦'} {profile.city || profile.location.split(',')[0]}
+                    </div>
+
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5">
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold text-sm text-white">
+                          {profile.name}, {profile.age}
+                        </span>
+                        {profile.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
+                      </div>
+                      <p className="text-[11px] text-purple-200/80 truncate mt-0.5">
+                        {maskContactInfo(profile.job || profile.bio)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

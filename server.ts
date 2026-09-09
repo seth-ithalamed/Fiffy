@@ -6,11 +6,6 @@ import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
-  INITIAL_CURRENT_USER,
-  MOCK_PROFILES,
-  INITIAL_MATCHES,
-  INITIAL_MESSAGES,
-  INITIAL_REPORTED_ITEMS,
   DEFAULT_SUBSCRIPTION_PLANS,
   DEFAULT_PAYFAST_CONFIG,
   INITIAL_ADMIN_SETTINGS,
@@ -47,8 +42,8 @@ function getInitialDbState(): DatabaseSchema {
   const adminUser = {
     id: 'admin-1',
     name: 'Fiffy Executive Admin',
-    email: 'admin@fiffys.com',
-    password: 'admin2026',
+    email: 'admin@fiffy.com',
+    password: 'admin123',
     role: 'admin',
     verified: true,
     country: 'South Africa',
@@ -61,39 +56,9 @@ function getInitialDbState(): DatabaseSchema {
     createdAt: new Date().toISOString(),
   };
 
-  const initialUsers = [
-    {
-      ...INITIAL_CURRENT_USER,
-      password: 'password123',
-      role: 'user',
-      isDemo: true,
-      createdAt: new Date().toISOString(),
-    },
-    ...MOCK_PROFILES.map((p) => ({
-      ...p,
-      email: `${p.name.toLowerCase().replace(/\s+/g, '.')}@demo.fiffys.com`,
-      password: 'password123',
-      phone: '+27 82 000 0000',
-      role: 'user',
-      isPremium: false,
-      premiumTier: 'free',
-      isExempt: false,
-      dailySwipesUsed: 0,
-      boostsRemaining: 1,
-      superLikesRemaining: 3,
-      boostExpiresAt: null,
-      incognito: false,
-      hideAge: false,
-      hideDistance: false,
-      readReceipts: true,
-      isDemo: true,
-      createdAt: new Date().toISOString(),
-    })),
-    adminUser,
-  ];
-
   return {
-    users: initialUsers,
+    // Only real accounts - zero mock demo profiles
+    users: [adminUser],
     subscriptionPlans: DEFAULT_SUBSCRIPTION_PLANS,
     payfastConfig: {
       ...DEFAULT_PAYFAST_CONFIG,
@@ -107,38 +72,11 @@ function getInitialDbState(): DatabaseSchema {
     },
     adminSettings: INITIAL_ADMIN_SETTINGS,
     swipes: [],
-    matches: INITIAL_MATCHES,
-    messages: INITIAL_MESSAGES,
-    reports: INITIAL_REPORTED_ITEMS,
+    matches: [],
+    messages: {},
+    reports: [],
     testimonials: INITIAL_TESTIMONIALS,
-    transactions: [
-      {
-        id: 'tx-101',
-        userId: 'user-2',
-        userName: 'Thabo Ndlovu',
-        planId: 'plan-gold',
-        planName: 'VIP Gold Pan-African',
-        amountUsd: 19.99,
-        amountZar: 299,
-        paymentMethod: 'Instant Bank Transfer (EFT)',
-        paymentId: 'TX-9823412',
-        status: 'COMPLETE',
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      },
-      {
-        id: 'tx-102',
-        userId: 'user-6',
-        userName: 'Kofi Asante',
-        planId: 'plan-elite',
-        planName: 'Diaspora Elite Concierge',
-        amountUsd: 39.99,
-        amountZar: 599,
-        paymentMethod: 'Visa / Mastercard Credit',
-        paymentId: 'TX-9823413',
-        status: 'COMPLETE',
-        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-      },
-    ],
+    transactions: [],
     broadcasts: [],
     managers: INITIAL_PLATFORM_MANAGERS.map((m) => ({
       ...m,
@@ -153,6 +91,34 @@ function loadDb(): DatabaseSchema {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const loaded = JSON.parse(raw);
+
+      // Clean out any lingering demo profiles so only real database users exist
+      if (Array.isArray(loaded.users)) {
+        loaded.users = loaded.users.filter((u: any) => !u.isDemo);
+        if (!loaded.users.some((u: any) => u.email === 'admin@fiffy.com' || u.role === 'admin')) {
+          loaded.users.push({
+            id: 'admin-1',
+            name: 'Fiffy Executive Admin',
+            email: 'admin@fiffy.com',
+            password: 'admin123',
+            role: 'admin',
+            verified: true,
+            country: 'South Africa',
+            countryCode: 'ZA',
+            countryFlag: '🇿🇦',
+            city: 'Johannesburg',
+            isPremium: true,
+            premiumTier: 'elite',
+            isExempt: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (Array.isArray(loaded.matches)) {
+        loaded.matches = loaded.matches.filter((m: any) => !m.isDemo && m.user?.isDemo !== true);
+      }
+
       if (!loaded.testimonials || loaded.testimonials.length === 0) {
         loaded.testimonials = INITIAL_TESTIMONIALS;
       }
@@ -241,21 +207,124 @@ async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseS
         `[Supabase] State successfully hydrated from Supabase cloud database (Updated: ${supabaseLastSync})`
       );
 
-      // Merge cloud state with existing defaults in case of new schema fields
-      return {
+      const cloudData = data.data;
+
+      // Filter out any lingering demo mock users from cloud snapshot
+      const cleanUsers = Array.isArray(cloudData.users)
+        ? cloudData.users.filter((u: any) => !u.isDemo)
+        : currentDb.users;
+
+      const cleanMatches = Array.isArray(cloudData.matches)
+        ? cloudData.matches.filter((m: any) => !m.isDemo && m.user?.isDemo !== true)
+        : [];
+
+      currentDb = {
         ...currentDb,
-        ...data.data,
+        ...cloudData,
+        users: cleanUsers.length > 0 ? cleanUsers : currentDb.users,
+        matches: cleanMatches,
         payfastConfig: {
           ...currentDb.payfastConfig,
-          ...(data.data.payfastConfig || {}),
+          ...(cloudData.payfastConfig || {}),
         },
       };
     } else {
-      // Table exists but is empty -> seed initial state
-      console.log('[Supabase] Table fiffy_app_state is empty. Seeding initial snapshot to Supabase...');
+      // Table exists but is empty -> seed initial state (clean with zero demo users)
+      console.log('[Supabase] Table fiffy_app_state is empty. Seeding clean snapshot to Supabase...');
       supabaseTableConfirmed = true;
       await persistToSupabase(currentDb);
     }
+
+    // 2. Also check if normalized relational tables exist and merge their live contents
+    try {
+      const plansRes = await supabaseClient.from('subscription_plans').select('*');
+      if (plansRes.data && plansRes.data.length > 0) {
+        currentDb.subscriptionPlans = plansRes.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          priceUsd: Number(p.price_usd),
+          priceZar: Number(p.price_zar),
+          billingCycle: p.billing_cycle,
+          badge: p.badge || undefined,
+          description: p.description || '',
+          features: p.features || [],
+          payfastItemCode: p.payfast_item_code || undefined,
+          itemCode: p.item_code || undefined,
+          isActive: p.is_active !== false,
+          isPopular: !!p.is_popular,
+        }));
+      }
+    } catch {}
+
+    try {
+      const settingsRes = await supabaseClient.from('admin_settings').select('*').eq('id', 'default').maybeSingle();
+      if (settingsRes.data) {
+        const s = settingsRes.data;
+        currentDb.adminSettings = {
+          ...currentDb.adminSettings,
+          paymentsEnabled: s.payments_enabled !== false,
+          paymentModel: s.payment_model || 'subscription',
+          currency: s.currency || 'USD',
+          payfastMerchantId: s.payfast_merchant_id || '10000100',
+          payfastMerchantKey: s.payfast_merchant_key || '46f0cd694581a',
+          payfastPassphrase: s.payfast_passphrase || 'fiffy_secret_gateway_pass',
+          payfastSandbox: s.payfast_sandbox !== false,
+          requireIdVerification: !!s.require_id_verification,
+          minimumAge: s.minimum_age || 18,
+          maxDistanceKm: s.max_distance_km || 15000,
+          freeDailySwipes: s.free_daily_swipes || 5,
+        };
+      }
+    } catch {}
+
+    try {
+      const managersRes = await supabaseClient.from('platform_managers').select('*');
+      if (managersRes.data && managersRes.data.length > 0) {
+        currentDb.managers = managersRes.data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          phone: m.phone,
+          role: m.role,
+          department: m.department,
+          status: m.status || 'active',
+          isRootAdmin: !!m.is_root_admin,
+          avatarUrl: m.avatar_url,
+          password: m.password,
+        }));
+      }
+    } catch {}
+
+    try {
+      const profilesRes = await supabaseClient.from('profiles').select('*');
+      if (profilesRes.data && profilesRes.data.length > 0) {
+        const dbUsersMap = new Map((currentDb.users || []).map((u) => [u.id, u]));
+        for (const p of profilesRes.data) {
+          const existing = dbUsersMap.get(p.id) || {};
+          dbUsersMap.set(p.id, {
+            ...existing,
+            id: p.id,
+            name: p.name,
+            gender: p.gender || 'woman',
+            age: p.age || 25,
+            country: p.country || 'South Africa',
+            countryCode: p.country_code || 'ZA',
+            city: p.city || 'Johannesburg',
+            bio: p.bio || '',
+            photos: p.photos || [],
+            interests: p.interests || [],
+            verified: !!p.verified,
+            isPremium: !!p.is_premium,
+            premiumTier: p.premium_tier || 'free',
+            role: 'user',
+            isDemo: false,
+          });
+        }
+        currentDb.users = Array.from(dbUsersMap.values());
+      }
+    } catch {}
+
+    return currentDb;
   } catch (err: any) {
     supabaseLastError = err?.message || String(err);
     console.error('[Supabase] Hydration exception:', err);
@@ -555,6 +624,13 @@ async function startServer() {
     db.users.push(newUser);
     saveDb(db);
 
+    // Immediately trigger cloud persist so user record is stored on Supabase right away
+    if (supabaseClient) {
+      persistToSupabase(db).catch((err) => {
+        console.error('[Supabase] Immediate signup persist failed:', err);
+      });
+    }
+
     const { password: _, ...userSafe } = newUser;
     res.status(201).json({
       success: true,
@@ -571,14 +647,56 @@ async function startServer() {
       return res.status(400).json({ error: 'Contact number/email and password are required' });
     }
 
+    const cleanDigits = (val?: string) => (val || '').replace(/[^0-9]/g, '');
+    const normalizeCorePhone = (val?: string) => {
+      if (!val) return '';
+      let digits = val.replace(/[^0-9]/g, '');
+      // Strip common country dialing codes if longer than standard local format
+      if (digits.startsWith('27') && digits.length >= 11) {
+        digits = digits.slice(2);
+      } else if (digits.startsWith('234') && digits.length >= 12) {
+        digits = digits.slice(3);
+      } else if (digits.startsWith('254') && digits.length >= 11) {
+        digits = digits.slice(3);
+      } else if (digits.startsWith('44') && digits.length >= 12) {
+        digits = digits.slice(2);
+      } else if (digits.startsWith('1') && digits.length >= 11) {
+        digits = digits.slice(1);
+      }
+      while (digits.startsWith('0')) {
+        digits = digits.slice(1);
+      }
+      return digits;
+    };
+
+    const loginDigits = cleanDigits(loginId);
+    const loginCore = normalizeCorePhone(loginId);
+
     const user = db.users.find((u) => {
-      const uEmail = (u.email || '').toLowerCase();
+      const uEmail = (u.email || '').toLowerCase().trim();
       const uPhone = (u.phone || '').trim().toLowerCase();
       const uContact = (u.contactNumber || '').trim().toLowerCase();
-      return (
-        (uEmail === loginId || uPhone === loginId || uContact === loginId) &&
-        u.password === password
-      );
+
+      const isEmailMatch = uEmail && uEmail === loginId;
+      const isDirectPhoneMatch = (uPhone && uPhone === loginId) || (uContact && uContact === loginId);
+
+      const uPhoneDigits = cleanDigits(uPhone);
+      const uContactDigits = cleanDigits(uContact);
+      const uPhoneCore = normalizeCorePhone(uPhone);
+      const uContactCore = normalizeCorePhone(uContact);
+
+      const isExactDigitsMatch =
+        loginDigits.length >= 7 &&
+        (uPhoneDigits === loginDigits || uContactDigits === loginDigits);
+
+      const isCorePhoneMatch =
+        loginCore.length >= 7 &&
+        (uPhoneCore === loginCore ||
+         uContactCore === loginCore ||
+         (uPhoneCore.length >= 7 && (uPhoneCore.endsWith(loginCore) || loginCore.endsWith(uPhoneCore))) ||
+         (uContactCore.length >= 7 && (uContactCore.endsWith(loginCore) || loginCore.endsWith(uContactCore))));
+
+      return (isEmailMatch || isDirectPhoneMatch || isExactDigitsMatch || isCorePhoneMatch) && u.password === password;
     });
 
     if (!user) {
@@ -1116,7 +1234,11 @@ async function startServer() {
       return res.status(404).json({ error: 'Subscription plan not found' });
     }
 
-    const user = db.users.find((u) => u.id === userId) || INITIAL_CURRENT_USER;
+    const user = db.users.find((u) => u.id === userId) || {
+      id: userId || 'guest',
+      name: 'Fiffy Member',
+      email: 'member@fiffys.com',
+    };
     const config = db.payfastConfig || DEFAULT_PAYFAST_CONFIG;
 
     const mPaymentId = `FIFFY-SUB-${Date.now()}-${user.id}`;
@@ -1539,23 +1661,25 @@ async function startServer() {
     res.json({ success: true, message: 'Platform manager removed successfully' });
   });
 
-  // 15. ADMIN: Reset or Clear Demo Data
+  // 15. ADMIN: Clean Live Database State
   app.post('/api/admin/clear-demo-data', (req, res) => {
     db.users = db.users.filter((u) => !u.isDemo);
+    db.matches = (db.matches || []).filter((m: any) => !m.isDemo && m.user?.isDemo !== true);
     saveDb(db);
     res.json({
       success: true,
-      message: 'Demo profiles removed. Platform is now running in clean live mode with registered users only.',
+      message: 'Demo profiles removed. Platform is now running in clean live mode with database users only.',
       remainingUsersCount: db.users.length,
     });
   });
 
   app.post('/api/admin/reset-demo-data', (req, res) => {
-    db = getInitialDbState();
+    db.users = db.users.filter((u) => !u.isDemo);
+    db.matches = (db.matches || []).filter((m: any) => !m.isDemo && m.user?.isDemo !== true);
     saveDb(db);
     res.json({
       success: true,
-      message: 'Initial African demo profiles, plans, and love stories have been re-seeded.',
+      message: 'Database state synchronized. Clean live database mode active.',
     });
   });
 

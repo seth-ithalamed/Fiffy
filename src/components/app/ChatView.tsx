@@ -120,39 +120,52 @@ export const ChatView: React.FC = () => {
         </div>
 
         {/* New Matches Avatar Strip (Horizontal Scroll) */}
-        <div className="p-3 border-b border-white/[0.08]">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-pink-400 block mb-2 px-1">
-            New Matches
-          </span>
-          <div className="flex items-center gap-3 overflow-x-auto pb-1 px-1">
-            {(matches || []).map((m) => (
-              <div
-                key={m.id}
-                onClick={() => setActiveChatMatchId(m.id)}
-                className="flex flex-col items-center gap-1 cursor-pointer group flex-shrink-0"
-              >
-                <div className="relative">
-                  <img
-                    src={m.user.photos[0]}
-                    alt={m.user.name}
-                    referrerPolicy="no-referrer"
-                    className="w-13 h-13 rounded-full object-cover p-0.5 border-2 border-pink-500 group-hover:scale-105 transition-transform"
-                  />
-                  {m.user.online && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0e071a]" />
-                  )}
+        {matches && matches.length > 0 && (
+          <div className="p-3 border-b border-white/[0.08]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-pink-400 block mb-2 px-1">
+              New Matches
+            </span>
+            <div className="flex items-center gap-3 overflow-x-auto pb-1 px-1">
+              {matches.map((m) => (
+                <div
+                  key={m.id}
+                  onClick={() => setActiveChatMatchId(m.id)}
+                  className="flex flex-col items-center gap-1 cursor-pointer group flex-shrink-0"
+                >
+                  <div className="relative">
+                    <img
+                      src={m.user.photos[0]}
+                      alt={m.user.name}
+                      referrerPolicy="no-referrer"
+                      className="w-13 h-13 rounded-full object-cover p-0.5 border-2 border-pink-500 group-hover:scale-105 transition-transform"
+                    />
+                    {m.user.online && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0e071a]" />
+                    )}
+                  </div>
+                  <span className="text-[11px] font-medium text-purple-200 max-w-[56px] truncate">
+                    {m.user.name}
+                  </span>
                 </div>
-                <span className="text-[11px] font-medium text-purple-200 max-w-[56px] truncate">
-                  {m.user.name}
-                </span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-white/[0.06]">
-          {(matches || []).map((match) => {
+        <div className="flex-1 overflow-y-auto divide-y divide-white/[0.06] flex flex-col">
+          {!matches || matches.length === 0 ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center my-auto text-purple-300/70">
+              <div className="w-12 h-12 rounded-full bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 mb-3">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h4 className="font-display font-semibold text-white text-sm">No matches yet</h4>
+              <p className="text-xs text-purple-200/60 mt-1.5 max-w-[210px] leading-relaxed">
+                Swipe right on active singles in Discover. When you both like each other, you can chat here!
+              </p>
+            </div>
+          ) : (
+            matches.map((match) => {
             const isSelected = match.id === activeChatMatchId;
             const isClosed = match.chatStatus === 'closed';
             const isActiveChat = match.chatStatus === 'active';
@@ -213,7 +226,8 @@ export const ChatView: React.FC = () => {
                 )}
               </div>
             );
-          })}
+          })
+        )}
         </div>
       </div>
 
