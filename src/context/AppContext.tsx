@@ -802,7 +802,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {
-    setCurrentUser((prev) => ({ ...prev, ...updates }));
+    setCurrentUser((prev) => {
+      const nextUser = { ...prev, ...updates };
+      try {
+        const saved = localStorage.getItem('fiffy_auth_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          localStorage.setItem('fiffy_auth_user', JSON.stringify({ ...parsed, ...updates }));
+        }
+      } catch {}
+
+      if (nextUser.id) {
+        fetchApi(`/api/users/${nextUser.id}/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }).catch(() => {});
+      }
+
+      return nextUser;
+    });
   };
 
   const verifySelfie = () => {

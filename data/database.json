@@ -9,7 +9,7 @@
       "showMe": "men",
       "email": "lerato.khumalo@fiffys.com",
       "phone": "+27 82 459 9021",
-      "job": "Brand Strategist & Art Enthusiast",
+      "job": "Senior Brand Strategist",
       "company": "Khumalo Media Group",
       "education": "University of the Witwatersrand",
       "location": "Rosebank, Johannesburg",
@@ -73,7 +73,8 @@
       "password": "password123",
       "role": "user",
       "isDemo": true,
-      "createdAt": "2026-09-04T05:33:17.613Z"
+      "createdAt": "2026-09-04T05:33:17.613Z",
+      "updatedAt": "2026-09-09T09:20:14.436Z"
     },
     {
       "id": "user-1",
@@ -1150,5 +1151,132 @@
       "createdAt": "2026-08-30T05:33:17.613Z"
     }
   ],
-  "broadcasts": []
+  "broadcasts": [],
+  "testimonials": [
+    {
+      "id": "test-1",
+      "coupleNames": "Zola & Kwesi",
+      "locations": "Johannesburg 🇿🇦 • Accra 🇬🇭",
+      "location": "Johannesburg 🇿🇦 • Accra 🇬🇭",
+      "country": "South Africa / Ghana",
+      "countryFlag": "🇿🇦",
+      "photoUrl": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80",
+      "userPhoto": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80",
+      "quote": "We matched across countries using the Global African Passport. After three months of daily video calls, Kwesi flew to Cape Town. We got married last December in Accra!",
+      "story": "We matched across countries using the Global African Passport. After three months of daily video calls, Kwesi flew to Cape Town. We got married last December in Accra!",
+      "storyDetails": "Zola and Kwesi met on Fiffy across 6,000 km. Today they run a joint creative consultancy between Ghana and South Africa.",
+      "weddingDate": "December 2025",
+      "metDate": "Matched on Fiffy",
+      "verified": true,
+      "status": "published",
+      "createdAt": "2026-01-15T10:00:00.000Z"
+    },
+    {
+      "id": "test-2",
+      "coupleNames": "Thabo & Naledi",
+      "locations": "Sandton, South Africa 🇿🇦",
+      "location": "Sandton, South Africa 🇿🇦",
+      "country": "South Africa",
+      "countryFlag": "🇿🇦",
+      "photoUrl": "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80",
+      "userPhoto": "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80",
+      "quote": "The selfie verification made me feel safe from the start. We both share a passion for fintech and afrohouse music. Fiffy made finding true chemistry effortless.",
+      "story": "The selfie verification made me feel safe from the start. We both share a passion for fintech and afrohouse music. Fiffy made finding true chemistry effortless.",
+      "storyDetails": "Both working in Sandton’s financial district, they lived 10 minutes apart but only connected through Fiffy’s prompt matching.",
+      "weddingDate": "Engaged October 2025",
+      "metDate": "Matched on Fiffy",
+      "verified": true,
+      "status": "published",
+      "createdAt": "2026-02-10T14:30:00.000Z"
+    },
+    {
+      "id": "test-3",
+      "coupleNames": "Amina & Tunde",
+      "locations": "Nairobi 🇰🇪 • Lagos 🇳🇬",
+      "location": "Nairobi 🇰🇪 • Lagos 🇳🇬",
+      "country": "Kenya / Nigeria",
+      "countryFlag": "🇰🇪",
+      "photoUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
+      "userPhoto": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
+      "quote": "As someone in the creative diaspora, I wanted someone who understood my cultural heritage. Fiffy’s cultural prompts made connecting deep and natural.",
+      "story": "As someone in the creative diaspora, I wanted someone who understood my cultural heritage. Fiffy’s cultural prompts made connecting deep and natural.",
+      "storyDetails": "Amina (curator in Nairobi) and Tunde (architect in Lagos) bonded over contemporary African architecture and literature.",
+      "weddingDate": "Wedding in May 2026",
+      "metDate": "Matched on Fiffy",
+      "verified": true,
+      "status": "published",
+      "createdAt": "2026-03-01T08:15:00.000Z"
+    },
+    {
+      "id": "test-4",
+      "coupleNames": "Kofi & Folake",
+      "locations": "London 🇬🇧 • Abuja 🇳🇬",
+      "location": "London 🇬🇧 • Abuja 🇳🇬",
+      "country": "UK / Nigeria",
+      "countryFlag": "🇬🇧",
+      "photoUrl": "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80",
+      "userPhoto": "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?auto=format&fit=crop&w=800&q=80",
+      "quote": "Diaspora dating is tough when you want shared values. With Fiffy VIP, we found alignment on family, faith, and ambition on day one.",
+      "story": "Diaspora dating is tough when you want shared values. With Fiffy VIP, we found alignment on family, faith, and ambition on day one.",
+      "storyDetails": "Connected via Diaspora Elite Concierge. Held their traditional engagement ceremony in Abuja with both families.",
+      "weddingDate": "February 2026",
+      "metDate": "Matched on Fiffy",
+      "verified": true,
+      "status": "published",
+      "createdAt": "2026-03-20T12:00:00.000Z"
+    }
+  ],
+  "managers": [
+    {
+      "id": "mgr-root",
+      "name": "Executive Admin",
+      "email": "admin@fiffy.com",
+      "role": "co_admin",
+      "department": "Platform Governance & Executive Operations",
+      "status": "active",
+      "isRootAdmin": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
+      "password": "admin123"
+    },
+    {
+      "id": "mgr-2",
+      "name": "Kudzi Moyo",
+      "email": "kudzi.moyo@fiffys.com",
+      "phone": "+263 77 234 5678",
+      "role": "moderator",
+      "department": "Harare Trust & Safety Hub",
+      "status": "active",
+      "isRootAdmin": false,
+      "createdAt": "2026-02-10T12:00:00.000Z",
+      "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80",
+      "password": "manager2026"
+    },
+    {
+      "id": "mgr-3",
+      "name": "Tariro Chikore",
+      "email": "tariro.chikore@fiffys.com",
+      "phone": "+27 82 456 7890",
+      "role": "support_vip",
+      "department": "Johannesburg VIP Concierge Desk",
+      "status": "active",
+      "isRootAdmin": false,
+      "createdAt": "2026-02-18T09:30:00.000Z",
+      "avatarUrl": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=120&q=80",
+      "password": "manager2026"
+    },
+    {
+      "id": "mgr-4",
+      "name": "Farai Nkomo",
+      "email": "farai.nkomo@fiffys.com",
+      "phone": "+44 77 0090 0123",
+      "role": "content_manager",
+      "department": "London Diaspora Outreach & Love Stories",
+      "status": "active",
+      "isRootAdmin": false,
+      "createdAt": "2026-03-01T14:15:00.000Z",
+      "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
+      "password": "manager2026"
+    }
+  ]
 }

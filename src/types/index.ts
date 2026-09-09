@@ -4,6 +4,8 @@ export type SexualOrientation = 'straight' | 'gay' | 'lesbian' | 'bisexual' | 'p
 
 export type ShowMePreference = 'everyone' | 'women' | 'men' | 'non-binary';
 
+export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
 export type ChildrenStatus =
   | 'no_children'
   | 'have_children_living'

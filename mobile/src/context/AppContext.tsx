@@ -460,6 +460,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentUser((prev) => {
       const updated = { ...prev, ...updates };
       AsyncStorage.setItem('fiffy_current_user', JSON.stringify(updated)).catch(() => {});
+      if (updated.id) {
+        fetch(`${API_BASE}/api/users/${updated.id}/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        }).catch(() => {});
+      }
       return updated;
     });
   };

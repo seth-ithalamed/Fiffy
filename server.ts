@@ -669,6 +669,67 @@ async function startServer() {
     res.json({ user: userSafe });
   });
 
+  // 4b. USERS: Update Profile (Photos, Bio, Prompts, Details)
+  app.put('/api/users/:id/profile', (req, res) => {
+    const { id } = req.params;
+    const user = db.users.find((u) => u.id === id);
+    if (!user) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    const {
+      photos,
+      bio,
+      prompts,
+      interests,
+      job,
+      company,
+      education,
+      datingGoal,
+      height,
+      starSign,
+      drinking,
+      smoking,
+      hasChildren,
+      childrenStatus,
+      spotifyTopArtist,
+      verified,
+      incognito,
+      hideAge,
+      hideDistance,
+      readReceipts,
+    } = req.body;
+
+    if (Array.isArray(photos)) {
+      user.photos = photos.slice(0, 5);
+    }
+    if (bio !== undefined) user.bio = maskContactInfoServer(bio);
+    if (Array.isArray(prompts)) user.prompts = prompts;
+    if (Array.isArray(interests)) user.interests = interests;
+    if (job !== undefined) user.job = job;
+    if (company !== undefined) user.company = company;
+    if (education !== undefined) user.education = education;
+    if (datingGoal !== undefined) user.datingGoal = datingGoal;
+    if (height !== undefined) user.height = height;
+    if (starSign !== undefined) user.starSign = starSign;
+    if (drinking !== undefined) user.drinking = drinking;
+    if (smoking !== undefined) user.smoking = smoking;
+    if (hasChildren !== undefined) user.hasChildren = hasChildren;
+    if (childrenStatus !== undefined) user.childrenStatus = childrenStatus;
+    if (spotifyTopArtist !== undefined) user.spotifyTopArtist = spotifyTopArtist;
+    if (verified !== undefined) user.verified = verified;
+    if (incognito !== undefined) user.incognito = incognito;
+    if (hideAge !== undefined) user.hideAge = hideAge;
+    if (hideDistance !== undefined) user.hideDistance = hideDistance;
+    if (readReceipts !== undefined) user.readReceipts = readReceipts;
+
+    user.updatedAt = new Date().toISOString();
+    saveDb(db);
+
+    const { password: _, ...userSafe } = user;
+    res.json({ success: true, user: userSafe });
+  });
+
   // 5. PROFILES: Discovery Deck (filtered by country, gender, etc.)
   app.get('/api/profiles', (req, res) => {
     const { country, gender, showMe } = req.query;

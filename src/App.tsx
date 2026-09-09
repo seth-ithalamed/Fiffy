@@ -51,20 +51,21 @@ const MainAppContent: React.FC = () => {
         {activeSurface === 'web-app' && (
           <div className="flex-1 flex flex-col h-[calc(100vh-60px)]">
             {/* In-App Surface Secondary Tab Switcher */}
-            <div className="bg-[#0e061d]/85 backdrop-blur-xl border-b border-white/[0.08] px-4 py-2 flex items-center justify-between gap-4 z-20">
-              <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="bg-[#0e061d]/85 backdrop-blur-xl border-b border-white/[0.08] px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4 z-20 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 {/* Sparks / Discover Tab */}
                 <button
                   id="tab-discover"
                   onClick={() => setInAppTab('discover')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                     inAppTab === 'discover'
                       ? 'gradient-fiffy text-white shadow-lg shadow-pink-500/25'
                       : 'text-purple-300/80 hover:text-white hover:bg-white/[0.06]'
                   }`}
                 >
                   <Flame className="w-3.5 h-3.5" />
-                  <span>Sparks Deck</span>
+                  <span className="hidden sm:inline">Sparks Deck</span>
+                  <span className="sm:hidden">Sparks</span>
                 </button>
 
                 {/* Messages & Sparks Tab - Only shown when logged in */}
@@ -72,14 +73,15 @@ const MainAppContent: React.FC = () => {
                   <button
                     id="tab-chat"
                     onClick={() => setInAppTab('chat')}
-                    className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                       inAppTab === 'chat'
                         ? 'gradient-fiffy text-white shadow-lg shadow-pink-500/25'
                         : 'text-purple-300/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span>Chat &amp; Matches</span>
+                    <span className="hidden sm:inline">Chat &amp; Matches</span>
+                    <span className="sm:hidden">Chat</span>
                     {totalUnreadMessages > 0 && (
                       <span className="w-4 h-4 rounded-full bg-pink-500 text-white text-[9px] font-extrabold flex items-center justify-center">
                         {totalUnreadMessages}
@@ -92,14 +94,15 @@ const MainAppContent: React.FC = () => {
                 <button
                   id="tab-profile"
                   onClick={() => setInAppTab('profile')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                     inAppTab === 'profile'
                       ? 'gradient-fiffy text-white shadow-lg shadow-pink-500/25'
                       : 'text-purple-300/80 hover:text-white hover:bg-white/[0.06]'
                   }`}
                 >
                   <User className="w-3.5 h-3.5" />
-                  <span>My Profile</span>
+                  <span className="hidden sm:inline">My Profile</span>
+                  <span className="sm:hidden">Profile</span>
                 </button>
               </div>
 
@@ -107,7 +110,7 @@ const MainAppContent: React.FC = () => {
               <div
                 id="app-user-mini-status"
                 onClick={() => setInAppTab('profile')}
-                className="hidden sm:flex items-center gap-2 cursor-pointer group"
+                className="hidden sm:flex items-center gap-2 cursor-pointer group flex-shrink-0"
               >
                 <img
                   src={currentUser.photos[0] || 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=150&q=80'}
