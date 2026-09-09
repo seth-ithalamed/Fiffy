@@ -93,8 +93,8 @@ export const AdminDashboard: React.FC = () => {
   } = useApp();
 
   // Admin login form states
-  const [adminEmail, setAdminEmail] = useState<string>('admin@fiffy.com');
-  const [adminPassword, setAdminPassword] = useState<string>('admin123');
+  const [adminEmail, setAdminEmail] = useState<string>('');
+  const [adminPassword, setAdminPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
@@ -464,43 +464,11 @@ export const AdminDashboard: React.FC = () => {
                 id="admin-login-password"
                 type="password"
                 required
+                placeholder="••••••••"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-pink-500"
               />
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/30 text-[11px] text-purple-300/80 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-pink-400">Quick Test Credentials:</span>
-                <span className="text-[10px] text-purple-400">Click to fill</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  id="auto-fill-admin-creds-btn"
-                  onClick={() => {
-                    setAdminEmail('admin@fiffy.com');
-                    setAdminPassword('admin123');
-                  }}
-                  className="p-2 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 text-left text-pink-200 border border-pink-500/30 transition-all cursor-pointer"
-                >
-                  <div className="font-bold text-[11px] text-pink-300">Executive Admin</div>
-                  <div className="text-[10px] text-gray-300 font-mono">admin@fiffy.com</div>
-                </button>
-                <button
-                  type="button"
-                  id="auto-fill-manager-creds-btn"
-                  onClick={() => {
-                    setAdminEmail('kudzi.moyo@fiffys.com');
-                    setAdminPassword('manager2026');
-                  }}
-                  className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-left text-purple-200 border border-purple-500/30 transition-all cursor-pointer"
-                >
-                  <div className="font-bold text-[11px] text-purple-300">Staff Manager</div>
-                  <div className="text-[10px] text-gray-300 font-mono">kudzi.moyo@fiffys.com</div>
-                </button>
-              </div>
             </div>
 
             <button

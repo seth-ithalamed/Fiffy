@@ -82,23 +82,6 @@ export const AuthModal: React.FC = () => {
     }
   };
 
-  const handleQuickDemoLogin = async (identifier: string, pass: string) => {
-    setLoginIdentifier(identifier);
-    setLoginPassword(pass);
-    setLoginError(null);
-    setLoginLoading(true);
-
-    const res = await loginUser(identifier, pass);
-    setLoginLoading(false);
-
-    if (res.success) {
-      showToast('Demo Account Loaded', `Signed in as ${res.user?.name || identifier}`, 'info');
-      closeAuthModal();
-    } else {
-      setLoginError(res.error || 'Failed to login with demo profile');
-    }
-  };
-
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError(null);
@@ -295,49 +278,22 @@ export const AuthModal: React.FC = () => {
               )}
             </button>
 
-            {/* Quick Demo Logins for reviewers */}
-            <div className="pt-4 mt-4 border-t border-white/10">
-              <p className="text-[11px] uppercase tracking-wider text-purple-300/60 font-semibold mb-2.5">
-                Demo Accounts (Quick 1-Click Login):
+            {/* Switch to sign up */}
+            <div className="pt-4 mt-2 border-t border-white/10 text-center">
+              <p className="text-xs text-purple-200/70">
+                Don't have an account yet?{' '}
+                <button
+                  type="button"
+                  id="login-switch-to-signup-btn"
+                  onClick={() => {
+                    setAuthModalTab('signup');
+                    setSignupError(null);
+                  }}
+                  className="font-bold text-pink-400 hover:text-pink-300 transition-colors underline underline-offset-2"
+                >
+                  Create one now
+                </button>
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  id="demo-login-lerato"
-                  onClick={() => handleQuickDemoLogin('lerato.khumalo@fiffys.com', 'password123')}
-                  className="text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors"
-                >
-                  <div className="font-semibold text-pink-300">🇿🇦 Lerato Khumalo</div>
-                  <div className="text-[10px] text-purple-300/60">Johannesburg, South Africa</div>
-                </button>
-                <button
-                  type="button"
-                  id="demo-login-amara"
-                  onClick={() => handleQuickDemoLogin('amara.okafor@demo.fiffys.com', 'password123')}
-                  className="text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors"
-                >
-                  <div className="font-semibold text-pink-300">🇳🇬 Amara Okafor</div>
-                  <div className="text-[10px] text-purple-300/60">Lagos, Nigeria</div>
-                </button>
-                <button
-                  type="button"
-                  id="demo-login-thabo"
-                  onClick={() => handleQuickDemoLogin('thabo.ndlovu@demo.fiffys.com', 'password123')}
-                  className="text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors"
-                >
-                  <div className="font-semibold text-pink-300">🇿🇦 Thabo Ndlovu</div>
-                  <div className="text-[10px] text-purple-300/60">Sandton, South Africa</div>
-                </button>
-                <button
-                  type="button"
-                  id="demo-login-kwame"
-                  onClick={() => handleQuickDemoLogin('kwame.mensah@demo.fiffys.com', 'password123')}
-                  className="text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs transition-colors"
-                >
-                  <div className="font-semibold text-pink-300">🇬🇭 Kwame Mensah</div>
-                  <div className="text-[10px] text-purple-300/60">Accra, Ghana</div>
-                </button>
-              </div>
             </div>
           </form>
         )}
