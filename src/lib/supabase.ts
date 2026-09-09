@@ -52,6 +52,41 @@ export const SUPABASE_SQL_SCHEMA = `-- =========================================
 -- Built for High-Volume Dating, Geolocation, Realtime Chat & Subscriptions
 -- =========================================================================
 
+-- 0. DYNAMIC BACKEND STATE PERSISTENCE TABLE (for Render deployments)
+-- Automatically synchronizes and preserves full application state across restarts
+CREATE TABLE IF NOT EXISTS public.fiffy_app_state (
+  id TEXT PRIMARY KEY DEFAULT 'production',
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.fiffy_app_state ENABLE ROW LEVEL SECURITY;
+
+-- Allow full access for backend service role key
+CREATE POLICY "Allow service role full access on fiffy_app_state"
+ON public.fiffy_app_state FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+-- Allow public read/write if using anon key
+CREATE POLICY "Allow public read on fiffy_app_state"
+ON public.fiffy_app_state FOR SELECT
+TO anon, authenticated
+USING (true);
+
+CREATE POLICY "Allow public upsert on fiffy_app_state"
+ON public.fiffy_app_state FOR INSERT
+TO anon, authenticated
+WITH CHECK (true);
+
+CREATE POLICY "Allow public update on fiffy_app_state"
+ON public.fiffy_app_state FOR UPDATE
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
 -- 1. Enable PostGIS (for fast geospatial distance calculation) & UUID generator
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "cube";

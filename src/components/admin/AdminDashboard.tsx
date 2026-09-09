@@ -34,6 +34,10 @@ import {
   UserCheck,
   UserCog,
   Shield,
+  Cloud,
+  Copy,
+  ExternalLink,
+  HardDrive,
 } from 'lucide-react';
 import {
   SubscriptionPlan,
@@ -186,11 +190,85 @@ export const AdminDashboard: React.FC = () => {
   const [broadcastBody, setBroadcastBody] = useState<string>('High activity in London, Atlanta, Johannesburg, Nairobi, and Lagos. Find your match!');
   const [targetAudience, setTargetAudience] = useState<PushNotificationBroadcast['targetAudience']>('all');
 
+  // Supabase Cloud Persistence state
+  const [supabaseStatus, setSupabaseStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    url: string;
+    keyType: string;
+    lastSync: string | null;
+    tableExists: boolean;
+    error: string | null;
+    stats?: any;
+  } | null>(null);
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+  const [supabaseSqlSchema, setSupabaseSqlSchema] = useState<string>('');
+  const [isCopiedSql, setIsCopiedSql] = useState(false);
+  const [showSqlViewer, setShowSqlViewer] = useState(false);
+
+  const fetchSupabaseStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/supabase/status');
+      if (res.ok) {
+        const data = await res.json();
+        setSupabaseStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed fetching Supabase status', err);
+    }
+  };
+
+  const handleSupabaseSync = async () => {
+    setIsSyncingSupabase(true);
+    try {
+      const res = await fetch('/api/admin/supabase/sync', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('Supabase Synced', 'Platform data successfully saved to Supabase cloud.', 'match');
+        fetchSupabaseStatus();
+      } else {
+        showToast('Sync Warning', data.error || 'Failed to sync to Supabase', 'info');
+        fetchSupabaseStatus();
+      }
+    } catch (err: any) {
+      showToast('Sync Error', err.message || 'Network error', 'info');
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  const handleFetchSqlSchema = async () => {
+    if (!supabaseSqlSchema) {
+      try {
+        const res = await fetch('/api/admin/supabase/schema');
+        if (res.ok) {
+          const data = await res.json();
+          setSupabaseSqlSchema(data.schema);
+        }
+      } catch (err) {
+        console.error('Failed loading schema', err);
+      }
+    }
+    setShowSqlViewer(true);
+  };
+
+  const handleCopySql = () => {
+    if (supabaseSqlSchema) {
+      navigator.clipboard.writeText(supabaseSqlSchema);
+      setIsCopiedSql(true);
+      showToast('Schema Copied', 'Paste into Supabase SQL Editor and click Run.', 'match');
+      setTimeout(() => setIsCopiedSql(false), 3000);
+    }
+  };
+
   useEffect(() => {
     if (adminSession?.isAuthenticated) {
       fetchAdminUsers();
+      if (activeTab === 'database') {
+        fetchSupabaseStatus();
+      }
     }
-  }, [adminSession?.isAuthenticated]);
+  }, [adminSession?.isAuthenticated, activeTab]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1846,43 +1924,203 @@ export const AdminDashboard: React.FC = () => {
 
         {/* 4. DATABASE & DEMO DATA MANAGEMENT */}
         {activeTab === 'database' && (
-          <div className="max-w-2xl bg-[#130726] border border-white/10 rounded-3xl p-6 space-y-6">
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Database className="w-4 h-4 text-pink-400" />
-                <span>Demo Data Management</span>
-              </h3>
-              <p className="text-xs text-purple-300/80 mt-1">
-                As required for your executive presentation, you can switch the database to clean live mode or restore the demo African profiles seed anytime.
-              </p>
+          <div className="max-w-3xl space-y-6">
+            {/* Supabase Cloud Persistence Status & Control */}
+            <div className="bg-[#130726] border border-white/10 rounded-3xl p-6 space-y-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Cloud className="w-5 h-5 text-emerald-400" />
+                    <span>Supabase Cloud Persistence</span>
+                  </h3>
+                  <p className="text-xs text-purple-300/80 mt-1">
+                    Backend data persistence engine for your Render web service (<code className="text-pink-300">https://fiffy.onrender.com</code>).
+                    Stores all user profiles, matches, VIP tiers, and transactions across container restarts.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
+                      supabaseStatus?.connected
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : supabaseStatus?.configured
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-white/10 text-gray-300 border border-white/10'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        supabaseStatus?.connected
+                          ? 'bg-emerald-400 animate-pulse'
+                          : supabaseStatus?.configured
+                          ? 'bg-amber-400'
+                          : 'bg-gray-400'
+                      }`}
+                    />
+                    {supabaseStatus?.connected
+                      ? 'Cloud Connected & Syncing'
+                      : supabaseStatus?.configured
+                      ? 'Credentials Set (Run Schema)'
+                      : 'Local Memory Fallback'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="text-[11px] text-purple-300/70 font-medium">Supabase Project URL</div>
+                  <div className="text-xs font-mono text-white mt-1 truncate">
+                    {supabaseStatus?.url || (supabaseStatus?.configured ? 'Configured in env' : 'Not configured')}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="text-[11px] text-purple-300/70 font-medium">Authentication Key</div>
+                  <div className="text-xs font-mono text-emerald-300 mt-1">
+                    {supabaseStatus?.keyType || 'None'}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="text-[11px] text-purple-300/70 font-medium">Last Cloud Snapshot</div>
+                  <div className="text-xs font-mono text-white mt-1">
+                    {supabaseStatus?.lastSync
+                      ? new Date(supabaseStatus.lastSync).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })
+                      : 'Pending initial sync'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Error or Notice Alert if applicable */}
+              {supabaseStatus?.error && (
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-semibold">Supabase Notice: </span>
+                    <span>{supabaseStatus.error}</span>
+                    <p className="text-[11px] text-amber-300/80">
+                      If the table does not exist, copy the schema below, open your Supabase SQL Editor, and click "Run".
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  id="supabase-sync-btn"
+                  onClick={handleSupabaseSync}
+                  disabled={isSyncingSupabase}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingSupabase ? 'Saving to Cloud...' : 'Sync to Supabase Now'}</span>
+                </button>
+
+                <button
+                  id="supabase-copy-schema-btn"
+                  onClick={async () => {
+                    await handleFetchSqlSchema();
+                    handleCopySql();
+                  }}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/15 text-xs font-bold transition-all flex items-center gap-2"
+                >
+                  {isCopiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-purple-300" />}
+                  <span>{isCopiedSql ? 'Schema Copied!' : 'Copy Supabase SQL Schema'}</span>
+                </button>
+
+                <button
+                  id="supabase-toggle-schema-btn"
+                  onClick={handleFetchSqlSchema}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-purple-200 text-xs font-medium transition-all"
+                >
+                  {showSqlViewer ? 'Hide Schema Preview' : 'View SQL DDL'}
+                </button>
+              </div>
+
+              {/* Collapsible Schema Preview */}
+              {showSqlViewer && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between text-xs text-purple-300 font-semibold">
+                    <span>Supabase SQL DDL Schema (Run once in Supabase SQL Editor):</span>
+                    <button
+                      onClick={handleCopySql}
+                      className="text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{isCopiedSql ? 'Copied!' : 'Copy All'}</span>
+                    </button>
+                  </div>
+                  <pre className="p-4 rounded-2xl bg-black/60 border border-white/10 text-[11px] font-mono text-emerald-300 max-h-64 overflow-y-auto leading-relaxed">
+                    {supabaseSqlSchema || 'Loading SQL schema...'}
+                  </pre>
+                </div>
+              )}
+
+              {/* Render Setup Instructions */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                <div className="text-xs font-bold text-white flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-pink-400" />
+                  <span>Required Environment Variables on Render:</span>
+                </div>
+                <div className="space-y-1.5 text-[11px] text-purple-200/80 font-mono">
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <span className="text-pink-400">SUPABASE_URL</span> = <span className="text-gray-400">https://your-project.supabase.co</span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-lg border border-white/5">
+                    <span className="text-pink-400">SUPABASE_SERVICE_ROLE_KEY</span> = <span className="text-gray-400">your-supabase-service-role-secret</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-purple-300/70 pt-1">
+                  Note: The frontend on Vercel does not need Supabase credentials because all requests route through your Render backend.
+                </p>
+              </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-              <div className="text-xs font-bold text-white">Clean Live Mode (No Mock Data)</div>
-              <p className="text-[11px] text-purple-200/70">
-                Removes the initial demo singles so that only live, authentically registered users who sign up through the application are displayed in discovery.
-              </p>
-              <button
-                id="clear-demo-data-btn"
-                onClick={clearDemoData}
-                className="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all"
-              >
-                Clear Demo Singles (Live Database Only)
-              </button>
-            </div>
+            {/* Demo Data Management */}
+            <div className="bg-[#130726] border border-white/10 rounded-3xl p-6 space-y-6">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Database className="w-4 h-4 text-pink-400" />
+                  <span>Demo Data Management</span>
+                </h3>
+                <p className="text-xs text-purple-300/80 mt-1">
+                  As required for your executive presentation, you can switch the database to clean live mode or restore the demo African profiles seed anytime.
+                </p>
+              </div>
 
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-              <div className="text-xs font-bold text-white">Restore Seed Profiles</div>
-              <p className="text-[11px] text-purple-200/70">
-                Re-seeds the database with authentic African singles from South Africa, Nigeria, Kenya, Ghana, Rwanda, Senegal, and Zimbabwe with high-resolution portraits.
-              </p>
-              <button
-                id="restore-demo-data-btn"
-                onClick={resetDemoData}
-                className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all"
-              >
-                Restore Demo African Profiles
-              </button>
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                <div className="text-xs font-bold text-white">Clean Live Mode (No Mock Data)</div>
+                <p className="text-[11px] text-purple-200/70">
+                  Removes the initial demo singles so that only live, authentically registered users who sign up through the application are displayed in discovery.
+                </p>
+                <button
+                  id="clear-demo-data-btn"
+                  onClick={clearDemoData}
+                  className="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all"
+                >
+                  Clear Demo Singles (Live Database Only)
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                <div className="text-xs font-bold text-white">Restore Seed Profiles</div>
+                <p className="text-[11px] text-purple-200/70">
+                  Re-seeds the database with authentic African singles from South Africa, Nigeria, Kenya, Ghana, Rwanda, Senegal, and Zimbabwe with high-resolution portraits.
+                </p>
+                <button
+                  id="restore-demo-data-btn"
+                  onClick={resetDemoData}
+                  className="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all"
+                >
+                  Restore Demo African Profiles
+                </button>
+              </div>
             </div>
           </div>
         )}

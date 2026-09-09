@@ -14,17 +14,20 @@ Scan the QR code with **Expo Go** on your phone (iOS or Android).
 
 ## Backend Connection
 
-The app points to `http://localhost:3000` by default (defined in `src/context/AppContext.tsx`).
+The mobile app points directly to your live production Render backend:
+`https://fiffy.onrender.com` (defined in `src/context/AppContext.tsx`).
 
-To test against the live server:
-1. Start the web backend: `npm run dev` (from the root `Fiffy/` folder)
-2. Update `API_BASE` in `src/context/AppContext.tsx` to your machine's LAN IP:
-   ```ts
-   const API_BASE = 'http://192.168.x.x:3000';
+To customize or run against a local development server:
+1. Set the environment variable `EXPO_PUBLIC_API_URL` (e.g. in your `.env` or build command):
+   ```bash
+   EXPO_PUBLIC_API_URL="https://fiffy.onrender.com" npx expo start
    ```
-3. Make sure your phone and computer are on the same Wi-Fi network.
+2. Or point to your local Wi-Fi IP for local debugging:
+   ```bash
+   EXPO_PUBLIC_API_URL="http://192.168.x.x:3000" npx expo start
+   ```
 
-The app works fully offline too — it falls back to mock data automatically.
+The app also works fully offline with automated mock fallbacks if the network is ever unavailable.
 
 ## Demo Logins (offline-capable)
 

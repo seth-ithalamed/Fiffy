@@ -32,9 +32,13 @@ class FCMService {
   private preferences: FCMNotificationPreferences = DEFAULT_FCM_PREFERENCES;
 
   /**
-   * Initializes FCM push notification client on mobile
+   * Initializes FCM / Push notification client on mobile
    */
-  async init(apiBase: string = 'http://localhost:3000'): Promise<{ token: string; registered: boolean }> {
+  async init(
+    apiBase: string = (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL) ||
+      'https://fiffy.onrender.com',
+    userId?: string
+  ): Promise<{ token: string; registered: boolean }> {
     try {
       // 1. Load preferences
       const savedPrefs = await AsyncStorage.getItem(FCM_PREFS_STORAGE_KEY);
@@ -42,10 +46,44 @@ class FCMService {
         this.preferences = { ...DEFAULT_FCM_PREFERENCES, ...JSON.parse(savedPrefs) };
       }
 
-      // 2. Load or generate FCM token
+      // 2. Load or generate Push token
       let token = await AsyncStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+
+      // Attempt to get real Expo Push Token if expo-notifications is available
+      try {
+        const Notifications = require('expo-notifications');
+        if (Notifications && typeof Notifications.getExpoPushTokenAsync === 'function') {
+          // Set notification handler to present banner and play sound even if app is foreground
+          Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldPlaySound: true,
+              shouldSetBadge: true,
+            }),
+          });
+
+          const { status: existingStatus } = await Notifications.getPermissionsAsync();
+          let finalStatus = existingStatus;
+          if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+          }
+          if (finalStatus === 'granted') {
+            const expoTokenData = await Notifications.getExpoPushTokenAsync({
+              projectId: '7189a815-f17e-41cf-a489-815d3017aa99',
+            });
+            if (expoTokenData?.data) {
+              token = expoTokenData.data;
+              await AsyncStorage.setItem(FCM_TOKEN_STORAGE_KEY, token);
+            }
+          }
+        }
+      } catch (expoErr) {
+        // Safe fallback if native expo-notifications module is not installed
+      }
+
       if (!token) {
-        // Generate valid FCM registration token structure
+        // Generate valid push registration token structure
         const platformPrefix = Platform.OS === 'ios' ? 'fcm_apns' : 'fcm_android';
         const randomHash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         token = `${platformPrefix}_${Date.now()}_${randomHash}`;
@@ -58,12 +96,13 @@ class FCMService {
       // 3. Register token with backend server
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
         await fetch(`${apiBase}/api/fcm/register-token`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             token: this.currentToken,
+            userId: userId || 'anonymous',
             platform: Platform.OS,
             preferences: this.preferences,
             registeredAt: new Date().toISOString(),

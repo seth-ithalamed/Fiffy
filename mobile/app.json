@@ -38,6 +38,14 @@
       "expo-router",
       "expo-font",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#e11d48",
+          "sounds": []
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0a0414",
@@ -53,6 +61,7 @@
       "url": "https://u.expo.dev/7189a815-f17e-41cf-a489-815d3017aa99"
     },
     "extra": {
+      "apiUrl": "https://fiffy.onrender.com",
       "eas": {
         "projectId": "7189a815-f17e-41cf-a489-815d3017aa99"
       }

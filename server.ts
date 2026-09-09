@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   INITIAL_CURRENT_USER,
   MOCK_PROFILES,
@@ -16,6 +17,7 @@ import {
   INITIAL_TESTIMONIALS,
   INITIAL_PLATFORM_MANAGERS,
 } from './src/data/mockData';
+import { SUPABASE_SQL_SCHEMA } from './src/lib/supabase';
 
 // Ensure data directory exists
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -93,7 +95,16 @@ function getInitialDbState(): DatabaseSchema {
   return {
     users: initialUsers,
     subscriptionPlans: DEFAULT_SUBSCRIPTION_PLANS,
-    payfastConfig: DEFAULT_PAYFAST_CONFIG,
+    payfastConfig: {
+      ...DEFAULT_PAYFAST_CONFIG,
+      merchantId: process.env.PAYFAST_MERCHANT_ID || DEFAULT_PAYFAST_CONFIG.merchantId,
+      merchantKey: process.env.PAYFAST_MERCHANT_KEY || DEFAULT_PAYFAST_CONFIG.merchantKey,
+      passPhrase: process.env.PAYFAST_PASSPHRASE || DEFAULT_PAYFAST_CONFIG.passPhrase,
+      isSandbox:
+        process.env.PAYFAST_SANDBOX !== undefined
+          ? process.env.PAYFAST_SANDBOX === 'true'
+          : DEFAULT_PAYFAST_CONFIG.isSandbox,
+    },
     adminSettings: INITIAL_ADMIN_SETTINGS,
     swipes: [],
     matches: INITIAL_MATCHES,
@@ -157,15 +168,158 @@ function loadDb(): DatabaseSchema {
     console.error('Failed reading DB file, re-initializing...', err);
   }
   const initial = getInitialDbState();
-  saveDb(initial);
+  saveDb(initial, false);
   return initial;
 }
 
-function saveDb(data: DatabaseSchema): void {
+// -------------------------------------------------------------
+// SUPABASE CLOUD PERSISTENCE ENGINE
+// Provides durable cloud data storage across Render container restarts
+// -------------------------------------------------------------
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim();
+const SUPABASE_KEY = (
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  ''
+).trim();
+
+let supabaseClient: SupabaseClient | null = null;
+let supabaseLastSync: string | null = null;
+let supabaseLastError: string | null = null;
+let supabaseTableConfirmed = false;
+
+function initSupabaseClient(url?: string, key?: string): SupabaseClient | null {
+  const targetUrl = (url || SUPABASE_URL).trim();
+  const targetKey = (key || SUPABASE_KEY).trim();
+  if (targetUrl && targetKey) {
+    try {
+      supabaseClient = createClient(targetUrl, targetKey, {
+        auth: { persistSession: false },
+      });
+      console.log(`[Supabase] Cloud database client active -> ${targetUrl}`);
+      return supabaseClient;
+    } catch (err: any) {
+      console.error('[Supabase] Failed initializing Supabase client:', err?.message || err);
+      supabaseLastError = err?.message || String(err);
+    }
+  }
+  return null;
+}
+
+// Auto-initialize if environment variables are provided
+initSupabaseClient();
+
+// Hydrate database state from Supabase table 'fiffy_app_state'
+async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseSchema> {
+  if (!supabaseClient) return currentDb;
+  try {
+    console.log('[Supabase] Querying cloud persistence table: fiffy_app_state...');
+    const { data, error } = await supabaseClient
+      .from('fiffy_app_state')
+      .select('data, updated_at')
+      .eq('id', 'production')
+      .maybeSingle();
+
+    if (error) {
+      supabaseLastError = error.message;
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        console.warn(
+          '[Supabase] Table public.fiffy_app_state does not exist yet. Run the SQL schema from Admin Portal or DEPLOYMENT.md to enable automatic cloud sync.'
+        );
+      } else {
+        console.warn(`[Supabase] Hydration warning: ${error.message}`);
+      }
+      return currentDb;
+    }
+
+    if (data && data.data) {
+      supabaseTableConfirmed = true;
+      supabaseLastSync = data.updated_at || new Date().toISOString();
+      supabaseLastError = null;
+      console.log(
+        `[Supabase] State successfully hydrated from Supabase cloud database (Updated: ${supabaseLastSync})`
+      );
+
+      // Merge cloud state with existing defaults in case of new schema fields
+      return {
+        ...currentDb,
+        ...data.data,
+        payfastConfig: {
+          ...currentDb.payfastConfig,
+          ...(data.data.payfastConfig || {}),
+        },
+      };
+    } else {
+      // Table exists but is empty -> seed initial state
+      console.log('[Supabase] Table fiffy_app_state is empty. Seeding initial snapshot to Supabase...');
+      supabaseTableConfirmed = true;
+      await persistToSupabase(currentDb);
+    }
+  } catch (err: any) {
+    supabaseLastError = err?.message || String(err);
+    console.error('[Supabase] Hydration exception:', err);
+  }
+  return currentDb;
+}
+
+// Persist database state to Supabase table
+async function persistToSupabase(data: DatabaseSchema): Promise<{ success: boolean; error?: string }> {
+  if (!supabaseClient) {
+    return { success: false, error: 'Supabase client not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' };
+  }
+  try {
+    const { error } = await supabaseClient
+      .from('fiffy_app_state')
+      .upsert(
+        {
+          id: 'production',
+          data,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      supabaseLastError = error.message;
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          error: 'Table fiffy_app_state does not exist in Supabase. Please execute the SQL schema in Supabase SQL editor.',
+        };
+      }
+      return { success: false, error: error.message };
+    }
+
+    supabaseTableConfirmed = true;
+    supabaseLastSync = new Date().toISOString();
+    supabaseLastError = null;
+    return { success: true };
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    supabaseLastError = msg;
+    return { success: false, error: msg };
+  }
+}
+
+// Debounced sync to avoid write-hammering while keeping cloud state near-realtime
+let supabaseDebounceTimer: NodeJS.Timeout | null = null;
+function scheduleSupabaseSync(data: DatabaseSchema) {
+  if (!supabaseClient) return;
+  if (supabaseDebounceTimer) clearTimeout(supabaseDebounceTimer);
+  supabaseDebounceTimer = setTimeout(() => {
+    persistToSupabase(data);
+  }, 1200);
+}
+
+function saveDb(data: DatabaseSchema, syncCloud = true): void {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed saving DB file', err);
+  }
+  if (syncCloud) {
+    scheduleSupabaseSync(data);
   }
 }
 
@@ -228,6 +382,16 @@ async function startServer() {
 
   // In-memory cache synced with disk
   let db = loadDb();
+
+  // Hydrate from Supabase cloud database if configured
+  if (supabaseClient) {
+    try {
+      db = await hydrateFromSupabase(db);
+      saveDb(db, false);
+    } catch (err) {
+      console.error('[Supabase] Initial boot hydration failed:', err);
+    }
+  }
 
   // Helper middleware for auth tokens
   const getAuthUser = (req: express.Request) => {
@@ -532,6 +696,84 @@ async function startServer() {
     res.json({ profiles: safeProfiles });
   });
 
+  // -------------------------------------------------------------
+  // PUSH NOTIFICATION ENGINE (EXPO PUSH & FCM GATEWAY)
+  // Wakes user devices & delivers banners when the app is closed/offline
+  // -------------------------------------------------------------
+  async function dispatchPushAlert(params: {
+    userId?: string;
+    title: string;
+    body: string;
+    channelId?: string;
+    data?: Record<string, any>;
+  }): Promise<{ totalDispatched: number; expoSent: number }> {
+    const allTokens = ((db as any).fcmTokens || []) as Array<{
+      token: string;
+      platform: string;
+      userId: string;
+      preferences?: any;
+    }>;
+
+    // Filter tokens for specific user or all
+    const targetTokens =
+      params.userId && params.userId !== 'all'
+        ? allTokens.filter((t) => t.userId === params.userId)
+        : allTokens;
+
+    let expoSent = 0;
+    const expoMessages: any[] = [];
+
+    for (const item of targetTokens) {
+      if (item.token.startsWith('ExponentPushToken') || item.token.startsWith('ExpoPushToken')) {
+        expoMessages.push({
+          to: item.token,
+          sound: 'default',
+          title: params.title,
+          body: params.body,
+          data: params.data || {},
+          channelId: params.channelId || 'fiffy_sparks',
+          priority: 'high',
+        });
+      }
+    }
+
+    // Deliver via Expo Push Gateway (relays to Apple APNs and Google FCM without needing credentials on Render)
+    if (expoMessages.length > 0) {
+      try {
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(expoMessages),
+        });
+        if (response.ok) {
+          expoSent = expoMessages.length;
+          console.log(`[Push Engine] Delivered ${expoSent} push notification(s) via Expo gateway.`);
+        }
+      } catch (pushErr) {
+        console.warn('[Push Engine] Expo push delivery notice:', pushErr);
+      }
+    }
+
+    // Record push event in database history
+    if (!db.broadcasts) db.broadcasts = [];
+    db.broadcasts.unshift({
+      id: `push-${Date.now()}`,
+      title: params.title,
+      body: params.body,
+      channelId: params.channelId || 'fiffy_sparks',
+      targetUserId: params.userId || 'all',
+      dispatchedCount: targetTokens.length,
+      sentAt: new Date().toISOString(),
+    });
+    if (db.broadcasts.length > 50) db.broadcasts.pop();
+
+    return { totalDispatched: targetTokens.length, expoSent };
+  }
+
   // 6. SWIPES: Record a Swipe & Auto-Match
   app.post('/api/swipes', (req, res) => {
     const { swiperId, swipedId, action } = req.body;
@@ -596,6 +838,15 @@ async function startServer() {
 
         db.matches.unshift(newMatchObj);
         db.messages[matchId] = [];
+
+        // Dispatch background push alert to swiped user (even if app is closed/offline)
+        dispatchPushAlert({
+          userId: swipedId,
+          title: "It's a Match on Fiffy! 🎉",
+          body: `${swiper?.name || 'Someone'} matched with you! Open Fiffy to chat.`,
+          channelId: 'sparksAndMatches',
+          data: { matchId, type: 'new_match' },
+        }).catch((e) => console.warn('Match push error', e));
       }
     }
 
@@ -670,6 +921,20 @@ async function startServer() {
     if (match) {
       match.lastMessage = sanitizedText;
       match.lastMessageTime = 'Just now';
+
+      // Determine recipient user ID
+      const recipientId = match.userId === senderId ? match.user_a || match.user_b : match.userId;
+      if (recipientId) {
+        const senderName = sender?.name || 'Your match';
+        const preview = sanitizedText.length > 50 ? sanitizedText.substring(0, 47) + '...' : sanitizedText;
+        dispatchPushAlert({
+          userId: recipientId,
+          title: `${senderName} sent you a message 💬`,
+          body: preview,
+          channelId: 'directMessages',
+          data: { matchId, type: 'new_message' },
+        }).catch((e) => console.warn('Message push error', e));
+      }
     }
 
     saveDb(db);
@@ -1286,6 +1551,110 @@ async function startServer() {
     res.json({ users: safeUsers });
   });
 
+  // 17. SUPABASE: Cloud Persistence Status, Force Sync, Hydrate & Schema
+  app.get('/api/admin/supabase/status', async (req, res) => {
+    let pingOk = false;
+    let tableExists = supabaseTableConfirmed;
+    let errorDetail = supabaseLastError;
+
+    if (supabaseClient) {
+      try {
+        const { data, error } = await supabaseClient
+          .from('fiffy_app_state')
+          .select('id, updated_at')
+          .eq('id', 'production')
+          .maybeSingle();
+
+        if (!error) {
+          pingOk = true;
+          tableExists = true;
+          errorDetail = null;
+        } else {
+          errorDetail = error.message;
+          if (error.code === '42P01' || error.message.includes('does not exist')) {
+            tableExists = false;
+          }
+        }
+      } catch (err: any) {
+        errorDetail = err?.message || String(err);
+      }
+    }
+
+    res.json({
+      configured: !!(SUPABASE_URL && SUPABASE_KEY),
+      url: SUPABASE_URL ? SUPABASE_URL.replace(/\.supabase\.co.*$/, '.supabase.co') : '',
+      keyType: process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? 'service_role (Admin Secret)'
+        : process.env.SUPABASE_ANON_KEY
+        ? 'anon (Public Client)'
+        : process.env.SUPABASE_KEY
+        ? 'custom'
+        : 'none',
+      connected: pingOk,
+      tableExists,
+      lastSync: supabaseLastSync,
+      error: errorDetail,
+      stats: {
+        totalUsers: db.users.length,
+        totalMatches: db.matches.length,
+        totalPlans: db.subscriptionPlans.length,
+        totalTransactions: db.transactions.length,
+        totalManagers: (db.managers || []).length,
+      },
+    });
+  });
+
+  app.post('/api/admin/supabase/sync', async (req, res) => {
+    if (!supabaseClient) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Supabase is not configured on Render. Please add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your Render Environment Variables.',
+      });
+    }
+
+    const result = await persistToSupabase(db);
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+
+    res.json({
+      success: true,
+      message: 'Platform state successfully synchronized and saved to Supabase cloud database.',
+      lastSync: supabaseLastSync,
+      itemCount: {
+        users: db.users.length,
+        matches: db.matches.length,
+        transactions: db.transactions.length,
+        plans: db.subscriptionPlans.length,
+      },
+    });
+  });
+
+  app.post('/api/admin/supabase/hydrate', async (req, res) => {
+    if (!supabaseClient) {
+      return res.status(400).json({
+        success: false,
+        error: 'Supabase is not configured.',
+      });
+    }
+
+    db = await hydrateFromSupabase(db);
+    saveDb(db, false);
+    res.json({
+      success: true,
+      message: 'State hydrated from Supabase cloud database successfully.',
+      lastSync: supabaseLastSync,
+      usersCount: db.users.length,
+    });
+  });
+
+  app.get('/api/admin/supabase/schema', (req, res) => {
+    res.json({
+      schema: SUPABASE_SQL_SCHEMA,
+    });
+  });
+
   // 18. FCM: Firebase Cloud Messaging Push Notification Engine
   app.post('/api/fcm/register-token', (req, res) => {
     const { token, platform, preferences, userId } = req.body;
@@ -1319,15 +1688,24 @@ async function startServer() {
     res.json({ tokens: (db as any).fcmTokens || [], total: ((db as any).fcmTokens || []).length });
   });
 
-  app.post('/api/fcm/send-test', (req, res) => {
-    const { title, body, channelId, type, data } = req.body;
+  app.post('/api/fcm/send-test', async (req, res) => {
+    const { title, body, channelId, type, data, userId } = req.body;
+    const result = await dispatchPushAlert({
+      userId: userId || 'all',
+      title: title || 'Fiffy Sparks Alert',
+      body: body || 'High activity in your area. Open Fiffy to see who liked you!',
+      channelId: channelId || 'fiffy_sparks',
+      data: { type: type || 'test_alert', ...(data || {}) },
+    });
+
     res.json({
       success: true,
-      messageId: `projects/fiffys-matchmaking/messages/fcm-${Date.now()}`,
-      dispatchedTo: ((db as any).fcmTokens || []).length || 1,
+      messageId: `projects/fiffys-matchmaking/messages/push-${Date.now()}`,
+      dispatchedTo: result.totalDispatched,
+      expoDeliveries: result.expoSent,
       payload: {
-        title: title || 'Fiffy Notification',
-        body: body || 'You have an update on Fiffy',
+        title: title || 'Fiffy Sparks Alert',
+        body: body || 'High activity in your area. Open Fiffy to see who liked you!',
         channelId: channelId || 'fiffy_sparks',
         type: type || 'test_alert',
         data: data || {},

@@ -133,8 +133,10 @@ const DEFAULT_FILTERS: DiscoveryFilters = {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Hard-coded API base — point at your local dev server or deployed URL
-const API_BASE = 'http://localhost:3000';
+// Render Backend API URL (points to production Render backend https://fiffy.onrender.com)
+const API_BASE =
+  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL) ||
+  'https://fiffy.onrender.com';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -180,10 +182,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // ── Initialize FCM Push Notifications ─────────────────────────────────────
   useEffect(() => {
-    fcmService.init(API_BASE).catch((err) => {
+    fcmService.init(API_BASE, authUser?.id).catch((err) => {
       console.warn('FCM Mobile init warning:', err);
     });
-  }, []);
+  }, [authUser?.id]);
 
   // ── Hydrate auth from storage on mount ──────────────────────────────────────
   useEffect(() => {
