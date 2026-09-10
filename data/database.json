@@ -70,6 +70,66 @@
       "isDemo": false,
       "createdAt": "2026-09-09T10:05:37.795Z",
       "token": "usr-1788948337795-zs42v"
+    },
+    {
+      "id": "usr-1789025859582-oh6kv",
+      "name": "Thabo Mbeki",
+      "email": "27824599021@member.fiffys.com",
+      "phone": "+27824599021",
+      "contactNumber": "+27 82 459 9021",
+      "phoneVerified": true,
+      "phoneVerifiedAt": "2026-09-10T07:37:39.582Z",
+      "activeSessionToken": "sess_usr-1789025859582-oh6kv_1789025872130_q0invxmx",
+      "lastLoginAt": "2026-09-10T07:37:52.130Z",
+      "dateOfBirth": "1998-05-12",
+      "password": "securepassword123",
+      "role": "user",
+      "age": 28,
+      "gender": "woman",
+      "orientation": "straight",
+      "showMe": "men",
+      "country": "South Africa",
+      "countryCode": "ZA",
+      "countryFlag": "🇿🇦",
+      "city": "Johannesburg",
+      "location": "Johannesburg, South Africa",
+      "distanceKm": 0,
+      "bio": "Excited to meet genuine people on Fiffy’s Match Making!",
+      "photos": [
+        "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80"
+      ],
+      "interests": [
+        "Afrobeats",
+        "Contemporary Art",
+        "Specialty Coffee"
+      ],
+      "prompts": [
+        {
+          "id": "p-new-1",
+          "question": "Dating me is like...",
+          "answer": "Unwinding after a long week with laughter and great food."
+        }
+      ],
+      "job": "Professional",
+      "company": "",
+      "education": "Graduate",
+      "datingGoal": "Long-term relationship",
+      "verified": true,
+      "verificationStatus": "verified",
+      "online": true,
+      "lastActive": "Just now",
+      "isPremium": false,
+      "premiumTier": "free",
+      "boostsRemaining": 1,
+      "superLikesRemaining": 3,
+      "boostExpiresAt": null,
+      "incognito": false,
+      "hideAge": false,
+      "hideDistance": false,
+      "readReceipts": true,
+      "isDemo": false,
+      "createdAt": "2026-09-10T07:37:39.582Z",
+      "token": "sess_usr-1789025859582-oh6kv_1789025872130_q0invxmx"
     }
   ],
   "subscriptionPlans": [

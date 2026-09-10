@@ -3,47 +3,12 @@
 -- Complete ready-to-run DDL Script for Render Deployments & Supabase Cloud
 -- =========================================================================
 
--- 0. DYNAMIC BACKEND STATE PERSISTENCE TABLE (CRITICAL FOR RENDER DEPLOYMENTS)
--- This table automatically synchronizes and preserves full application state
--- (all users, subscriptions, admin settings, profiles) across Render restarts.
-CREATE TABLE IF NOT EXISTS public.fiffy_app_state (
-  id TEXT PRIMARY KEY DEFAULT 'production',
-  data JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE public.fiffy_app_state ENABLE ROW LEVEL SECURITY;
-
--- Drop existing policies if already defined to ensure idempotency
-DROP POLICY IF EXISTS "Allow service role full access on fiffy_app_state" ON public.fiffy_app_state;
-DROP POLICY IF EXISTS "Allow public read on fiffy_app_state" ON public.fiffy_app_state;
-DROP POLICY IF EXISTS "Allow public upsert on fiffy_app_state" ON public.fiffy_app_state;
-DROP POLICY IF EXISTS "Allow public update on fiffy_app_state" ON public.fiffy_app_state;
-
--- Allow full access for backend service role key
-CREATE POLICY "Allow service role full access on fiffy_app_state"
-ON public.fiffy_app_state FOR ALL
-TO service_role
-USING (true)
-WITH CHECK (true);
-
--- Allow public read/write if using anon key
-CREATE POLICY "Allow public read on fiffy_app_state"
-ON public.fiffy_app_state FOR SELECT
-TO anon, authenticated
-USING (true);
-
-CREATE POLICY "Allow public upsert on fiffy_app_state"
-ON public.fiffy_app_state FOR INSERT
-TO anon, authenticated
-WITH CHECK (true);
-
-CREATE POLICY "Allow public update on fiffy_app_state"
-ON public.fiffy_app_state FOR UPDATE
-TO anon, authenticated
-USING (true)
-WITH CHECK (true);
+-- 0. DEPRECATED LEGACY STATE TABLE CLEANUP
+-- NOTE: fiffy_app_state was previously used as an atomic monolithic JSONB fallback dump.
+-- It is NO LONGER NEEDED because all application domains are fully normalized into
+-- dedicated relational PostgreSQL tables (profiles, subscription_plans, matches, messages, etc.).
+-- We cleanly drop it to avoid duplicate storage, prevent data divergence, and enforce relational integrity.
+DROP TABLE IF EXISTS public.fiffy_app_state CASCADE;
 
 -- 1. Enable PostGIS & UUID generator extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -81,6 +46,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  contact_number TEXT,
+  phone_verified BOOLEAN DEFAULT FALSE,
+  phone_verified_at TIMESTAMPTZ,
+  active_session_token TEXT,
+  last_login_at TIMESTAMPTZ,
   age INTEGER NOT NULL CHECK (age >= 18),
   gender gender_type NOT NULL,
   gender_custom TEXT,
@@ -92,13 +64,22 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   company TEXT DEFAULT '',
   education TEXT DEFAULT '',
   location TEXT DEFAULT '',
+  city TEXT DEFAULT 'Johannesburg',
+  country TEXT DEFAULT 'South Africa',
+  country_code TEXT DEFAULT 'ZA',
+  country_flag TEXT DEFAULT '🇿🇦',
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   interests TEXT[] DEFAULT ARRAY[]::TEXT[],
   dating_goal TEXT DEFAULT 'Long-term relationship',
   verified BOOLEAN DEFAULT FALSE,
+  verification_status TEXT DEFAULT 'unverified',
   is_premium BOOLEAN DEFAULT FALSE,
   premium_tier subscription_tier_type DEFAULT 'free',
+  is_exempt BOOLEAN DEFAULT FALSE,
+  daily_swipes_used INTEGER DEFAULT 0,
+  boosts_remaining INTEGER DEFAULT 1,
+  super_likes_remaining INTEGER DEFAULT 3,
   boost_expires_at TIMESTAMPTZ,
   incognito BOOLEAN DEFAULT FALSE,
   hide_age BOOLEAN DEFAULT FALSE,
@@ -107,6 +88,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   online BOOLEAN DEFAULT TRUE,
   last_active TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Strict 1-account-per-phone constraint: Enforces phone uniqueness across all accounts
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_phone_unique ON public.profiles(phone) WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_profiles_active_session ON public.profiles(active_session_token) WHERE active_session_token IS NOT NULL;
 
 -- 4. PROFILE PROMPTS
 CREATE TABLE IF NOT EXISTS public.profile_prompts (

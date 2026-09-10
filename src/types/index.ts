@@ -75,6 +75,9 @@ export interface CurrentUser extends UserProfile {
   email?: string;
   phone: string;
   contactNumber?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string;
+  activeSessionToken?: string;
   dateOfBirth?: string;
   isPremium: boolean;
   premiumTier: 'free' | 'plus' | 'gold' | 'elite';
@@ -236,6 +239,8 @@ export interface AuthUser {
   email?: string;
   phone?: string;
   contactNumber?: string;
+  phoneVerified?: boolean;
+  activeSessionToken?: string;
   name: string;
   role: 'user' | 'admin' | 'manager';
   token: string;

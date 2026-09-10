@@ -534,16 +534,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       const parsed = await safeFetchJson(res);
       if (parsed.success && parsed.data?.user) {
-        setAuthUser(parsed.data.user);
+        const sessionToken = parsed.data.sessionToken || parsed.data.token || parsed.data.user.id;
+        const completeUser = {
+          ...parsed.data.user,
+          token: sessionToken,
+          activeSessionToken: sessionToken,
+        };
+
+        setAuthUser(completeUser);
         setCurrentUser((prev) => ({
           ...prev,
-          ...parsed.data.user,
+          ...completeUser,
         }));
-        localStorage.setItem('fiffy_auth_user', JSON.stringify(parsed.data.user));
+        localStorage.setItem('fiffy_auth_user', JSON.stringify(completeUser));
         setActiveSurfaceState('web-app');
         setInAppTab('discover');
         closeAuthModal();
-        return { success: true, user: parsed.data.user };
+        return { success: true, user: completeUser };
       }
 
       return {
@@ -567,17 +574,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       const parsed = await safeFetchJson(res);
       if (parsed.success && parsed.data?.user) {
-        setAuthUser(parsed.data.user);
+        const sessionToken = parsed.data.sessionToken || parsed.data.token || parsed.data.user.id;
+        const completeUser = {
+          ...parsed.data.user,
+          token: sessionToken,
+          activeSessionToken: sessionToken,
+        };
+
+        setAuthUser(completeUser);
         setCurrentUser((prev) => ({
           ...prev,
-          ...parsed.data.user,
+          ...completeUser,
         }));
-        localStorage.setItem('fiffy_auth_user', JSON.stringify(parsed.data.user));
+        localStorage.setItem('fiffy_auth_user', JSON.stringify(completeUser));
         setActiveSurfaceState('web-app');
         setInAppTab('discover');
         closeAuthModal();
         refreshActiveSinglesStats();
-        return { success: true, user: parsed.data.user };
+        return { success: true, user: completeUser };
       }
 
       return {
@@ -593,6 +607,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const logoutUser = () => {
+    const currentToken = authUser?.token;
+    if (currentToken) {
+      fetchApi('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentToken}`,
+        },
+      }).catch(() => {});
+    }
+
     setAuthUser(null);
     localStorage.removeItem('fiffy_auth_user');
     setCurrentUser(INITIAL_CURRENT_USER);
@@ -600,6 +625,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInAppTab('discover');
     showToast('Signed Out', 'You have been safely signed out.', 'info');
   };
+
+  // Single Active Session Integrity Checker: Periodically validates that this session has not been superseded
+  useEffect(() => {
+    if (!authUser?.token) return;
+
+    let isSubscribed = true;
+    const checkSessionIntegrity = async () => {
+      try {
+        const res = await fetchApi('/api/auth/validate-session', {
+          headers: {
+            Authorization: `Bearer ${authUser.token}`,
+          },
+        });
+        const data = await res.json();
+        if (!isSubscribed) return;
+
+        if (res.status === 401 || data?.error === 'SESSION_REVOKED') {
+          // Another session was initiated on a different device or browser
+          setAuthUser(null);
+          localStorage.removeItem('fiffy_auth_user');
+          setCurrentUser(INITIAL_CURRENT_USER);
+          setActiveSurface('marketing');
+          showToast(
+            'Session Terminated',
+            'Your account was signed in from another device or browser. Only one active login session is permitted for account security.',
+            'error'
+          );
+        }
+      } catch {
+        // Ignore network blips
+      }
+    };
+
+    // Initial check on mount
+    checkSessionIntegrity();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkSessionIntegrity, 30000);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, [authUser?.token]);
 
   // ADMIN METHODS
   const loginAdmin = async (email: string, pass: string) => {

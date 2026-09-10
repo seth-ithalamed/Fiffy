@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AFRICAN_COUNTRIES } from '../../data/mockData';
 import {
@@ -15,6 +15,11 @@ import {
   UserPlus,
   Phone,
   Calendar,
+  CheckCircle2,
+  ShieldCheck,
+  Smartphone,
+  KeyRound,
+  RefreshCw,
 } from 'lucide-react';
 
 const calculateAge = (dobString: string): number => {
@@ -62,6 +67,149 @@ export const AuthModal: React.FC = () => {
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
 
+  // Phone Validation & SMS OTP State
+  const [phoneChecking, setPhoneChecking] = useState(false);
+  const [phoneStatus, setPhoneStatus] = useState<{
+    checked: boolean;
+    valid?: boolean;
+    exists?: boolean;
+    message?: string;
+    formattedPhone?: string;
+  } | null>(null);
+
+  const [otpStepOpen, setOtpStepOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpSentNotice, setOtpSentNotice] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [verifiedPhoneFormatted, setVerifiedPhoneFormatted] = useState('');
+
+  // Reset OTP status if phone changes
+  const handlePhoneChange = (val: string) => {
+    setSignupContact(val);
+    setPhoneStatus(null);
+    if (isPhoneVerified) {
+      setIsPhoneVerified(false);
+      setVerificationToken(null);
+      setVerifiedPhoneFormatted('');
+    }
+  };
+
+  // Get active country code
+  const currentCountryObj = AFRICAN_COUNTRIES.find((c) => c.name === signupCountry);
+  const activeCountryCode = currentCountryObj?.code || 'ZA';
+
+  // Real-time Phone Validity & Duplicate Check
+  const handleCheckPhone = async (phoneVal = signupContact) => {
+    if (!phoneVal.trim() || phoneVal.trim().length < 7) {
+      setPhoneStatus(null);
+      return;
+    }
+    setPhoneChecking(true);
+    try {
+      const res = await fetch('/api/auth/check-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phoneVal.trim(),
+          countryCode: activeCountryCode,
+        }),
+      });
+      const data = await res.json();
+      setPhoneStatus({
+        checked: true,
+        valid: data.valid,
+        exists: data.exists,
+        message: data.message || data.error,
+        formattedPhone: data.formattedPhone,
+      });
+    } catch {
+      // Ignore network failure
+    } finally {
+      setPhoneChecking(false);
+    }
+  };
+
+  // Send SMS OTP
+  const handleSendOtp = async () => {
+    setOtpError(null);
+    setOtpSentNotice(null);
+    if (!signupContact.trim()) {
+      setSignupError('Please enter your contact number first.');
+      return;
+    }
+    setOtpSending(true);
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: signupContact.trim(),
+          countryCode: activeCountryCode,
+          purpose: 'signup',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error || 'Failed to send SMS verification code.');
+        if (data.error && data.error.includes('already exists')) {
+          setSignupError(data.error);
+        }
+      } else {
+        setOtpStepOpen(true);
+        setOtpSentNotice(data.message);
+        if (data.verificationCode) {
+          // Sandbox preview convenience: pre-populate code
+          setOtpCode(data.verificationCode);
+        }
+        showToast('SMS Sent', `Verification code sent to ${data.formattedPhone}`, 'info');
+      }
+    } catch {
+      setOtpError('Could not reach verification server. Please try again.');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  // Verify SMS OTP
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim() || otpCode.trim().length < 4) {
+      setOtpError('Please enter the 6-digit code received via SMS.');
+      return;
+    }
+    setOtpVerifying(true);
+    setOtpError(null);
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: signupContact.trim(),
+          code: otpCode.trim(),
+          countryCode: activeCountryCode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error || 'Incorrect or expired verification code.');
+      } else {
+        setIsPhoneVerified(true);
+        setVerificationToken(data.verificationToken);
+        setVerifiedPhoneFormatted(data.formattedPhone || signupContact);
+        setOtpStepOpen(false);
+        setOtpError(null);
+        showToast('Verified!', 'Your contact number is verified.', 'success');
+      }
+    } catch {
+      setOtpError('Network error while verifying code.');
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
   if (!isAuthModalOpen) return null;
 
   const calculatedAge = calculateAge(signupDob);
@@ -75,7 +223,7 @@ export const AuthModal: React.FC = () => {
     setLoginLoading(false);
 
     if (res.success) {
-      showToast('Welcome back!', 'Successfully signed in.', 'info');
+      showToast('Welcome back!', 'Successfully signed in. Previous sessions on other devices terminated.', 'info');
       closeAuthModal();
     } else {
       setLoginError(res.error || 'Invalid credentials or password');
@@ -93,6 +241,11 @@ export const AuthModal: React.FC = () => {
 
     if (!signupContact.trim()) {
       setSignupError('Contact number is required.');
+      return;
+    }
+
+    if (phoneStatus?.exists) {
+      setSignupError('An account with this contact number already exists. Fiffy’s allows only one account per phone number. Please sign in instead.');
       return;
     }
 
@@ -131,12 +284,13 @@ export const AuthModal: React.FC = () => {
       city: signupCity.trim() || 'Johannesburg',
       bio: signupBio.trim() || `Excited to connect with genuine people across ${signupCountry}!`,
       datingGoal: signupDatingGoal,
+      verificationToken: verificationToken || undefined,
     });
 
     setSignupLoading(false);
 
     if (res.success) {
-      showToast('Account Created!', 'Welcome to Fiffy’s Match Making. Your profile is live!', 'info');
+      showToast('Account Created!', 'Welcome to Fiffy’s Match Making. Your verified profile is live!', 'info');
       closeAuthModal();
     } else {
       setSignupError(res.error || 'Failed to create account.');
@@ -262,6 +416,14 @@ export const AuthModal: React.FC = () => {
               </div>
             </div>
 
+            {/* Single Session Security Notice in Login */}
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-purple-900/30 border border-purple-500/20 text-[11px] text-purple-200">
+              <ShieldCheck className="w-4 h-4 text-pink-400 shrink-0" />
+              <span>
+                <strong className="text-white font-semibold">Single Active Session:</strong> Signing in here will automatically sign you out of any other active devices or browser tabs.
+              </span>
+            </div>
+
             <button
               id="login-submit-btn"
               type="submit"
@@ -307,7 +469,24 @@ export const AuthModal: React.FC = () => {
                 className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-300"
               >
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span>{signupError}</span>
+                <div className="flex-1">
+                  <span>{signupError}</span>
+                  {signupError.includes('already exists') && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginIdentifier(signupContact);
+                          setAuthModalTab('login');
+                          setSignupError(null);
+                        }}
+                        className="text-xs font-bold text-pink-400 underline underline-offset-2 hover:text-pink-300"
+                      >
+                        Click here to Sign In instead →
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -357,41 +536,174 @@ export const AuthModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Contact Number & Optional Email */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="signup-contact" className="block text-xs font-semibold text-purple-200 mb-1.5">
-                  Contact Number * <span className="text-pink-400 text-[10px] font-normal">(Required)</span>
+            {/* Contact Number with Verification & Duplicate Prevention */}
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="signup-contact" className="block text-xs font-semibold text-purple-200">
+                  Mobile Contact Number * <span className="text-pink-400 text-[10px] font-normal">(1 account per number)</span>
                 </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 absolute left-3 top-3 text-purple-400/60" />
+                {isPhoneVerified ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Verified
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-purple-300/60">
+                    Format: +Country Code or Local (e.g. 082 459 9021)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Phone className="w-4 h-4 absolute left-3.5 top-3 text-purple-400/60" />
                   <input
                     id="signup-contact"
                     type="tel"
                     required
-                    placeholder="+27 82 459 9021"
+                    disabled={isPhoneVerified}
+                    placeholder={`e.g. +27 82 459 9021 or 0824599021`}
                     value={signupContact}
-                    onChange={(e) => setSignupContact(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none focus:border-pink-500"
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    onBlur={() => handleCheckPhone(signupContact)}
+                    className={`w-full bg-white/5 border rounded-2xl pl-10 pr-3 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none transition-colors ${
+                      isPhoneVerified
+                        ? 'border-emerald-500/50 bg-emerald-500/5 cursor-not-allowed text-emerald-200'
+                        : phoneStatus?.exists
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-white/10 focus:border-pink-500'
+                    }`}
                   />
                 </div>
+
+                {!isPhoneVerified && (
+                  <button
+                    type="button"
+                    id="signup-send-otp-btn"
+                    onClick={handleSendOtp}
+                    disabled={otpSending || !signupContact.trim()}
+                    className="px-3.5 py-2.5 rounded-2xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    {otpSending ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Smartphone className="w-3.5 h-3.5 text-pink-400" />
+                    )}
+                    <span>{otpStepOpen ? 'Resend SMS' : 'Verify SMS'}</span>
+                  </button>
+                )}
               </div>
 
-              <div>
-                <label htmlFor="signup-email" className="block text-xs font-semibold text-purple-200 mb-1.5">
-                  Email Address <span className="text-purple-300/60 text-[10px] font-normal">(Optional)</span>
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-3 text-purple-400/60" />
-                  <input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@domain.com (optional)"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none focus:border-pink-500"
-                  />
+              {/* Duplicate check warning */}
+              {phoneStatus?.exists && (
+                <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between text-xs text-red-300">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>This number already has an account.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginIdentifier(signupContact);
+                      setAuthModalTab('login');
+                      setSignupError(null);
+                    }}
+                    className="font-bold text-pink-400 underline underline-offset-2 hover:text-pink-300 ml-2"
+                  >
+                    Sign In
+                  </button>
                 </div>
+              )}
+
+              {/* OTP Entry Box */}
+              {otpStepOpen && !isPhoneVerified && (
+                <div className="p-3 rounded-xl bg-purple-950/60 border border-pink-500/30 space-y-2 mt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-pink-300 flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5" /> Enter 6-digit SMS verification code
+                    </span>
+                    <span className="text-[10px] text-purple-300/70">Valid for 5 mins</span>
+                  </div>
+
+                  {otpSentNotice && (
+                    <p className="text-[11px] text-purple-200/90 leading-tight">
+                      {otpSentNotice}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="signup-otp-input"
+                      type="text"
+                      maxLength={6}
+                      placeholder="e.g. 123456"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-36 bg-black/40 border border-pink-500/40 rounded-xl px-3 py-2 text-center text-sm tracking-widest font-mono text-white focus:outline-none focus:border-pink-400"
+                    />
+                    <button
+                      type="button"
+                      id="signup-verify-otp-btn"
+                      onClick={handleVerifyOtp}
+                      disabled={otpVerifying || otpCode.length < 4}
+                      className="flex-1 py-2 px-3 rounded-xl gradient-fiffy text-white font-bold text-xs shadow-md shadow-pink-500/20 hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                    >
+                      {otpVerifying ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Confirm & Verify</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {otpError && (
+                    <p className="text-[11px] text-red-300 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-400 shrink-0" /> {otpError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Verified Badge */}
+              {isPhoneVerified && (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    Number verified: <strong className="font-semibold text-white">{verifiedPhoneFormatted}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPhoneVerified(false);
+                      setVerificationToken(null);
+                      setOtpStepOpen(false);
+                    }}
+                    className="text-[11px] text-purple-300/80 hover:text-white underline ml-2"
+                  >
+                    Change Number
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Optional Email */}
+            <div>
+              <label htmlFor="signup-email" className="block text-xs font-semibold text-purple-200 mb-1.5">
+                Email Address <span className="text-purple-300/60 text-[10px] font-normal">(Optional)</span>
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3 top-3 text-purple-400/60" />
+                <input
+                  id="signup-email"
+                  type="email"
+                  placeholder="you@domain.com (optional)"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none focus:border-pink-500"
+                />
               </div>
             </div>
 

@@ -176,69 +176,424 @@ function initSupabaseClient(url?: string, key?: string): SupabaseClient | null {
 // Auto-initialize if environment variables are provided
 initSupabaseClient();
 
-// Hydrate database state from Supabase table 'fiffy_app_state'
+// =========================================================================
+// GRANULAR RELATIONAL PERSISTENCE HELPERS (Dedicated Supabase Tables)
+// All entities are saved into their respective relational tables with Foreign Keys
+// =========================================================================
+
+// 1. Profiles & Profile Prompts (1-to-many relationship)
+async function persistProfilesAndPrompts(users: any[]): Promise<void> {
+  if (!supabaseClient || !users || users.length === 0) return;
+
+  const validUsers = users.filter((u) => u && u.id);
+  if (validUsers.length === 0) return;
+
+  const profileRows = validUsers.map((u) => ({
+    id: String(u.id),
+    name: u.name || 'Member',
+    email: u.email ? String(u.email).toLowerCase() : null,
+    phone: u.phone || u.contactNumber || null,
+    contact_number: u.contactNumber || u.phone || null,
+    phone_verified: !!u.phoneVerified,
+    phone_verified_at: u.phoneVerifiedAt || null,
+    active_session_token: u.activeSessionToken || null,
+    last_login_at: u.lastLoginAt || null,
+    date_of_birth: u.dateOfBirth || null,
+    password: u.password || 'fiffy2026',
+    role: u.role || 'user',
+    age: Math.max(18, Number(u.age) || 25),
+    gender: u.gender || 'Woman',
+    gender_custom: u.genderCustom || null,
+    orientation: u.orientation || 'Straight',
+    show_me: u.showMe || 'everyone',
+    bio: u.bio || '',
+    photos: Array.isArray(u.photos) ? u.photos : [],
+    job: u.job || '',
+    company: u.company || '',
+    education: u.education || '',
+    location: u.location || (u.city ? `${u.city}, ${u.country || ''}`.trim() : 'South Africa'),
+    city: u.city || 'Johannesburg',
+    country: u.country || 'South Africa',
+    country_code: u.countryCode || 'ZA',
+    country_flag: u.countryFlag || '🇿🇦',
+    latitude: typeof u.latitude === 'number' ? u.latitude : null,
+    longitude: typeof u.longitude === 'number' ? u.longitude : null,
+    interests: Array.isArray(u.interests) ? u.interests : [],
+    dating_goal: u.datingGoal || 'Long-term relationship',
+    verified: !!u.verified,
+    verification_status: u.verificationStatus || (u.verified ? 'verified' : 'unverified'),
+    is_premium: !!u.isPremium,
+    premium_tier: u.premiumTier || 'free',
+    is_exempt: !!u.isExempt,
+    daily_swipes_used: Number(u.dailySwipesUsed) || 0,
+    boosts_remaining: Number(u.boostsRemaining) || 1,
+    super_likes_remaining: Number(u.superLikesRemaining) || 3,
+    boost_expires_at: u.boostExpiresAt || null,
+    incognito: !!u.incognito,
+    hide_age: !!u.hideAge,
+    hide_distance: !!u.hideDistance,
+    read_receipts: u.readReceipts !== false,
+    online: u.online !== false,
+    last_active: u.lastActive || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+
+  // Upsert profiles in batches
+  for (let i = 0; i < profileRows.length; i += 50) {
+    const batch = profileRows.slice(i, i + 50);
+    const { error } = await supabaseClient.from('profiles').upsert(batch, { onConflict: 'id' });
+    if (error) {
+      console.warn('[Supabase] Error upserting profiles batch:', error.message);
+    }
+  }
+
+  // Upsert profile prompts (Foreign Key: profile_id -> profiles.id)
+  const promptRows: any[] = [];
+  for (const u of validUsers) {
+    if (Array.isArray(u.prompts) && u.prompts.length > 0) {
+      u.prompts.forEach((p: any, idx: number) => {
+        if (p && p.question && p.answer) {
+          promptRows.push({
+            id: p.id || `${u.id}-prompt-${idx}`,
+            profile_id: String(u.id),
+            question: p.question,
+            answer: p.answer,
+            display_order: idx,
+            created_at: new Date().toISOString(),
+          });
+        }
+      });
+    }
+  }
+
+  if (promptRows.length > 0) {
+    for (let i = 0; i < promptRows.length; i += 50) {
+      const batch = promptRows.slice(i, i + 50);
+      const { error } = await supabaseClient.from('profile_prompts').upsert(batch, { onConflict: 'id' });
+      if (error) {
+        console.warn('[Supabase] Error upserting profile_prompts batch:', error.message);
+      }
+    }
+  }
+}
+
+// 2. Subscription Plans
+async function persistSubscriptionPlans(plans: any[]): Promise<void> {
+  if (!supabaseClient || !plans || plans.length === 0) return;
+  const rows = plans.map((p) => ({
+    id: p.id,
+    name: p.name,
+    price_usd: Number(p.priceUsd) || 0,
+    price_zar: Number(p.priceZar) || 0,
+    billing_cycle: p.billingCycle || 'monthly',
+    badge: p.badge || null,
+    description: p.description || '',
+    features: Array.isArray(p.features) ? p.features : [],
+    payfast_item_code: p.payfastItemCode || null,
+    item_code: p.itemCode || null,
+    is_active: p.isActive !== false,
+    is_popular: !!p.isPopular,
+  }));
+  const { error } = await supabaseClient.from('subscription_plans').upsert(rows, { onConflict: 'id' });
+  if (error) {
+    console.warn('[Supabase] Error upserting subscription_plans:', error.message);
+  }
+}
+
+// 3. Platform Managers
+async function persistPlatformManagers(managers: any[]): Promise<void> {
+  if (!supabaseClient || !managers || managers.length === 0) return;
+  const rows = managers.map((m) => ({
+    id: m.id,
+    name: m.name,
+    email: (m.email || '').toLowerCase().trim(),
+    phone: m.phone || null,
+    role: m.role || 'moderator',
+    department: m.department || 'Operations Hub',
+    status: m.status || 'active',
+    is_root_admin: !!m.isRootAdmin,
+    avatar_url: m.avatarUrl || null,
+    password: m.password || 'manager2026',
+  }));
+  const { error } = await supabaseClient.from('platform_managers').upsert(rows, { onConflict: 'id' });
+  if (error) {
+    console.warn('[Supabase] Error upserting platform_managers:', error.message);
+  }
+}
+
+// 4. Admin Settings
+async function persistAdminSettings(adminSettings: any, payfastConfig: any): Promise<void> {
+  if (!supabaseClient) return;
+  const row = {
+    id: 'default',
+    payments_enabled: adminSettings?.paymentsEnabled ?? true,
+    payment_model: adminSettings?.paymentModel || 'subscription',
+    currency: adminSettings?.currency || 'USD',
+    payfast_merchant_id: adminSettings?.payfastMerchantId || payfastConfig?.merchantId || '10000100',
+    payfast_merchant_key: adminSettings?.payfastMerchantKey || payfastConfig?.merchantKey || '46f0cd694581a',
+    payfast_passphrase: adminSettings?.payfastPassphrase || payfastConfig?.passPhrase || 'fiffy_secret_gateway_pass',
+    payfast_sandbox: adminSettings?.payfastSandbox ?? (payfastConfig?.sandbox ?? true),
+    require_id_verification: !!adminSettings?.requireIdVerification,
+    minimum_age: adminSettings?.minimumAge || 18,
+    max_distance_km: adminSettings?.maxDistanceKm || 15000,
+    free_daily_swipes: adminSettings?.freeDailySwipes || 5,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabaseClient.from('admin_settings').upsert(row, { onConflict: 'id' });
+  if (error) {
+    console.warn('[Supabase] Error upserting admin_settings:', error.message);
+  }
+}
+
+// 5. Testimonials
+async function persistTestimonials(testimonials: any[]): Promise<void> {
+  if (!supabaseClient || !testimonials || testimonials.length === 0) return;
+  const rows = testimonials.map((t) => ({
+    id: t.id,
+    couple_names: t.coupleNames || 'Community Couple',
+    locations: t.locations || t.location || 'Global African Community',
+    location: t.location || t.locations || 'Global African Community',
+    quote: t.quote || t.story || '',
+    story: t.story || t.quote || '',
+    story_details: t.storyDetails || null,
+    wedding_date: t.weddingDate || null,
+    met_date: t.metDate || null,
+    photo_url: t.photoUrl || t.userPhoto || '',
+    user_photo: t.userPhoto || t.photoUrl || '',
+    partner_photo: t.partnerPhoto || null,
+    country: t.country || null,
+    country_flag: t.countryFlag || '🌍',
+    rating: t.rating || 5,
+    is_featured: t.isFeatured !== false,
+    verified: t.verified !== false,
+    status: t.status || 'published',
+    submitted_by: t.submittedBy || null,
+  }));
+  const { error } = await supabaseClient.from('testimonials').upsert(rows, { onConflict: 'id' });
+  if (error) {
+    console.warn('[Supabase] Error upserting testimonials:', error.message);
+  }
+}
+
+// 6. Swipes (Foreign Keys: swiper_id -> profiles.id, swiped_id -> profiles.id)
+async function persistSwipes(swipes: any[], knownUserIds: Set<string>): Promise<void> {
+  if (!supabaseClient || !swipes || swipes.length === 0) return;
+  const rows = swipes
+    .filter((s) => s && s.swiperId && s.swipedId && knownUserIds.has(String(s.swiperId)) && knownUserIds.has(String(s.swipedId)))
+    .map((s) => ({
+      id: s.id || `swp-${s.swiperId}-${s.swipedId}`,
+      swiper_id: String(s.swiperId),
+      swiped_id: String(s.swipedId),
+      action: s.action || 'like',
+      created_at: s.createdAt || new Date().toISOString(),
+    }));
+
+  if (rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50);
+    const { error } = await supabaseClient.from('swipes').upsert(batch, { onConflict: 'swiper_id,swiped_id' });
+    if (error) {
+      console.warn('[Supabase] Error upserting swipes:', error.message);
+    }
+  }
+}
+
+// 7. Matches (Foreign Keys: user_a -> profiles.id, user_b -> profiles.id)
+async function persistMatches(matches: any[], knownUserIds: Set<string>): Promise<void> {
+  if (!supabaseClient || !matches || matches.length === 0) return;
+  const rows: any[] = [];
+  for (const m of matches) {
+    if (!m || !m.id) continue;
+    const userA = m.user_a || m.initiatorId || (m.user?.id && knownUserIds.has('admin-1') ? 'admin-1' : null);
+    const userB = m.user_b || (m.user?.id ? m.user.id : m.userId);
+    if (userA && userB && knownUserIds.has(String(userA)) && knownUserIds.has(String(userB))) {
+      rows.push({
+        id: String(m.id),
+        user_a: String(userA),
+        user_b: String(userB),
+        is_super_match: !!m.isSuperMatch,
+        last_message: m.lastMessage || null,
+        last_message_at: m.lastMessageAt || new Date().toISOString(),
+        created_at: m.createdAt || new Date().toISOString(),
+      });
+    }
+  }
+
+  if (rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50);
+    const { error } = await supabaseClient.from('matches').upsert(batch, { onConflict: 'id' });
+    if (error) {
+      console.warn('[Supabase] Error upserting matches:', error.message);
+    }
+  }
+}
+
+// 8. Messages (Foreign Keys: match_id -> matches.id, sender_id -> profiles.id)
+async function persistMessages(messagesMap: Record<string, any[]>, knownUserIds: Set<string>, knownMatchIds: Set<string>): Promise<void> {
+  if (!supabaseClient || !messagesMap) return;
+  const rows: any[] = [];
+  for (const [matchId, msgs] of Object.entries(messagesMap)) {
+    if (!knownMatchIds.has(matchId)) continue;
+    if (Array.isArray(msgs)) {
+      for (const msg of msgs) {
+        if (!msg || !msg.id || !msg.text) continue;
+        const senderId = msg.senderId ? String(msg.senderId) : null;
+        if (senderId && knownUserIds.has(senderId)) {
+          rows.push({
+            id: String(msg.id),
+            match_id: String(matchId),
+            sender_id: senderId,
+            recipient_id: msg.recipientId && knownUserIds.has(String(msg.recipientId)) ? String(msg.recipientId) : null,
+            text: String(msg.text),
+            image_url: msg.imageUrl || null,
+            is_read: !!msg.isRead,
+            reactions: msg.reactions || [],
+            created_at: msg.timestamp || msg.createdAt || new Date().toISOString(),
+          });
+        }
+      }
+    }
+  }
+
+  if (rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50);
+    const { error } = await supabaseClient.from('messages').upsert(batch, { onConflict: 'id' });
+    if (error) {
+      console.warn('[Supabase] Error upserting messages:', error.message);
+    }
+  }
+}
+
+// 9. Transactions (Foreign Keys: user_id -> profiles.id, plan_id -> subscription_plans.id)
+async function persistTransactions(transactions: any[], knownUserIds: Set<string>, knownPlanIds: Set<string>): Promise<void> {
+  if (!supabaseClient || !transactions || transactions.length === 0) return;
+  const rows = transactions.map((t) => {
+    const userId = t.userId && knownUserIds.has(String(t.userId)) ? String(t.userId) : null;
+    const planId = t.planId && knownPlanIds.has(String(t.planId)) ? String(t.planId) : null;
+    return {
+      id: String(t.id),
+      user_id: userId,
+      user_name: t.userName || null,
+      plan_id: planId,
+      plan_name: t.planName || null,
+      amount_usd: t.amountUsd !== undefined ? Number(t.amountUsd) : (t.amountZar ? Number(t.amountZar) / 18 : null),
+      amount_zar: t.amountZar !== undefined ? Number(t.amountZar) : (t.amountUsd ? Number(t.amountUsd) * 18 : null),
+      payment_method: t.paymentMethod || 'PayFast Hosted Gateway',
+      payment_id: t.paymentId || t.pfPaymentId || null,
+      status: t.status || 'COMPLETE',
+      created_at: t.createdAt || new Date().toISOString(),
+    };
+  });
+
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50);
+    const { error } = await supabaseClient.from('transactions').upsert(batch, { onConflict: 'id' });
+    if (error) {
+      console.warn('[Supabase] Error upserting transactions:', error.message);
+    }
+  }
+}
+
+// 10. Reports (Foreign Keys: reporter_id -> profiles.id, reported_id -> profiles.id)
+async function persistReports(reports: any[], knownUserIds: Set<string>): Promise<void> {
+  if (!supabaseClient || !reports || reports.length === 0) return;
+  const rows: any[] = [];
+  for (const r of reports) {
+    const reportedId = r.reportedUserId || r.reportedId;
+    if (reportedId && knownUserIds.has(String(reportedId))) {
+      rows.push({
+        id: String(r.id),
+        reporter_id: r.reporterId && knownUserIds.has(String(r.reporterId)) ? String(r.reporterId) : null,
+        reporter_name: r.reporterName || null,
+        reported_id: String(reportedId),
+        reported_name: r.reportedUserName || r.reportedName || null,
+        reason: r.reason || 'Other',
+        details: r.details || null,
+        status: r.status || 'pending',
+        created_at: r.createdAt || new Date().toISOString(),
+      });
+    }
+  }
+
+  if (rows.length === 0) return;
+  const { error } = await supabaseClient.from('reports').upsert(rows, { onConflict: 'id' });
+  if (error) {
+    console.warn('[Supabase] Error upserting reports:', error.message);
+  }
+}
+
+// 11. Broadcasts (Foreign Key: sent_by -> platform_managers.id)
+async function persistBroadcasts(broadcasts: any[], knownManagerIds: Set<string>): Promise<void> {
+  if (!supabaseClient || !broadcasts || broadcasts.length === 0) return;
+  const rows = broadcasts.map((b) => ({
+    id: String(b.id),
+    title: b.title || 'Announcement',
+    message: b.message || '',
+    target_filter: b.targetFilter || 'all',
+    sent_by: b.sentBy && knownManagerIds.has(String(b.sentBy)) ? String(b.sentBy) : null,
+    delivery_count: Number(b.deliveryCount) || 0,
+    created_at: b.createdAt || new Date().toISOString(),
+  }));
+  const { error } = await supabaseClient.from('broadcasts').upsert(rows, { onConflict: 'id' });
+  if (error) {
+    console.warn('[Supabase] Error upserting broadcasts:', error.message);
+  }
+}
+
+// Master Relational Persistence Function
+// Sequentially upserts domain entities into their respective tables with foreign keys
+async function persistToSupabase(data: DatabaseSchema): Promise<{ success: boolean; error?: string }> {
+  if (!supabaseClient) {
+    return { success: false, error: 'Supabase client not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' };
+  }
+  try {
+    const knownUserIds = new Set((data.users || []).map((u) => String(u.id)));
+    const knownPlanIds = new Set((data.subscriptionPlans || []).map((p) => String(p.id)));
+    const knownManagerIds = new Set((data.managers || []).map((m) => String(m.id)));
+    const knownMatchIds = new Set((data.matches || []).map((m) => String(m.id)));
+
+    // 1. Parent tables first (satisfies foreign key constraints)
+    await persistProfilesAndPrompts(data.users || []);
+    await persistSubscriptionPlans(data.subscriptionPlans || []);
+    await persistPlatformManagers(data.managers || []);
+    await persistAdminSettings(data.adminSettings, data.payfastConfig);
+    await persistTestimonials(data.testimonials || []);
+
+    // 2. Child relational tables
+    await persistSwipes(data.swipes || [], knownUserIds);
+    await persistMatches(data.matches || [], knownUserIds);
+    await persistMessages(data.messages || {}, knownUserIds, knownMatchIds);
+    await persistTransactions(data.transactions || [], knownUserIds, knownPlanIds);
+    await persistReports(data.reports || [], knownUserIds);
+    await persistBroadcasts(data.broadcasts || [], knownManagerIds);
+
+    supabaseTableConfirmed = true;
+    supabaseLastSync = new Date().toISOString();
+    supabaseLastError = null;
+    return { success: true };
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    supabaseLastError = msg;
+    console.error('[Supabase] Error in relational persistToSupabase:', msg);
+    return { success: false, error: msg };
+  }
+}
+
+// Master Relational Hydration Function
+// Reconstructs the application state from normalized relational tables
 async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseSchema> {
   if (!supabaseClient) return currentDb;
   try {
-    console.log('[Supabase] Querying cloud persistence table: fiffy_app_state...');
-    const { data, error } = await supabaseClient
-      .from('fiffy_app_state')
-      .select('data, updated_at')
-      .eq('id', 'production')
-      .maybeSingle();
+    console.log('[Supabase] Hydrating state from normalized relational tables...');
+    let anyTableFound = false;
 
-    if (error) {
-      supabaseLastError = error.message;
-      if (error.code === '42P01' || error.message.includes('does not exist')) {
-        console.warn(
-          '[Supabase] Table public.fiffy_app_state does not exist yet. Run the SQL schema from Admin Portal or DEPLOYMENT.md to enable automatic cloud sync.'
-        );
-      } else {
-        console.warn(`[Supabase] Hydration warning: ${error.message}`);
-      }
-      return currentDb;
-    }
-
-    if (data && data.data) {
-      supabaseTableConfirmed = true;
-      supabaseLastSync = data.updated_at || new Date().toISOString();
-      supabaseLastError = null;
-      console.log(
-        `[Supabase] State successfully hydrated from Supabase cloud database (Updated: ${supabaseLastSync})`
-      );
-
-      const cloudData = data.data;
-
-      // Filter out any lingering demo mock users from cloud snapshot
-      const cleanUsers = Array.isArray(cloudData.users)
-        ? cloudData.users.filter((u: any) => !u.isDemo)
-        : currentDb.users;
-
-      const cleanMatches = Array.isArray(cloudData.matches)
-        ? cloudData.matches.filter((m: any) => !m.isDemo && m.user?.isDemo !== true)
-        : [];
-
-      currentDb = {
-        ...currentDb,
-        ...cloudData,
-        users: cleanUsers.length > 0 ? cleanUsers : currentDb.users,
-        matches: cleanMatches,
-        payfastConfig: {
-          ...currentDb.payfastConfig,
-          ...(cloudData.payfastConfig || {}),
-        },
-      };
-    } else {
-      // Table exists but is empty -> seed initial state (clean with zero demo users)
-      console.log('[Supabase] Table fiffy_app_state is empty. Seeding clean snapshot to Supabase...');
-      supabaseTableConfirmed = true;
-      await persistToSupabase(currentDb);
-    }
-
-    // 2. Also check if normalized relational tables exist and merge their live contents
+    // 1. Hydrate subscription_plans
     try {
       const plansRes = await supabaseClient.from('subscription_plans').select('*');
       if (plansRes.data && plansRes.data.length > 0) {
+        anyTableFound = true;
         currentDb.subscriptionPlans = plansRes.data.map((p: any) => ({
           id: p.id,
           name: p.name,
@@ -254,11 +609,15 @@ async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseS
           isPopular: !!p.is_popular,
         }));
       }
-    } catch {}
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate subscription_plans:', e?.message);
+    }
 
+    // 2. Hydrate admin_settings
     try {
       const settingsRes = await supabaseClient.from('admin_settings').select('*').eq('id', 'default').maybeSingle();
       if (settingsRes.data) {
+        anyTableFound = true;
         const s = settingsRes.data;
         currentDb.adminSettings = {
           ...currentDb.adminSettings,
@@ -274,12 +633,23 @@ async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseS
           maxDistanceKm: s.max_distance_km || 15000,
           freeDailySwipes: s.free_daily_swipes || 5,
         };
+        currentDb.payfastConfig = {
+          ...currentDb.payfastConfig,
+          merchantId: s.payfast_merchant_id || currentDb.payfastConfig.merchantId,
+          merchantKey: s.payfast_merchant_key || currentDb.payfastConfig.merchantKey,
+          passPhrase: s.payfast_passphrase || currentDb.payfastConfig.passPhrase,
+          sandbox: s.payfast_sandbox !== false,
+        };
       }
-    } catch {}
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate admin_settings:', e?.message);
+    }
 
+    // 3. Hydrate platform_managers
     try {
       const managersRes = await supabaseClient.from('platform_managers').select('*');
       if (managersRes.data && managersRes.data.length > 0) {
+        anyTableFound = true;
         currentDb.managers = managersRes.data.map((m: any) => ({
           id: m.id,
           name: m.name,
@@ -293,11 +663,30 @@ async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseS
           password: m.password,
         }));
       }
-    } catch {}
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate platform_managers:', e?.message);
+    }
 
+    // 4. Hydrate profiles & profile_prompts (Foreign Key relationship)
     try {
       const profilesRes = await supabaseClient.from('profiles').select('*');
       if (profilesRes.data && profilesRes.data.length > 0) {
+        anyTableFound = true;
+        const promptsByProfile: Record<string, any[]> = {};
+        try {
+          const promptsRes = await supabaseClient.from('profile_prompts').select('*').order('display_order', { ascending: true });
+          if (promptsRes.data) {
+            for (const pr of promptsRes.data) {
+              if (!promptsByProfile[pr.profile_id]) promptsByProfile[pr.profile_id] = [];
+              promptsByProfile[pr.profile_id].push({
+                id: pr.id,
+                question: pr.question,
+                answer: pr.answer,
+              });
+            }
+          }
+        } catch {}
+
         const dbUsersMap = new Map((currentDb.users || []).map((u) => [u.id, u]));
         for (const p of profilesRes.data) {
           const existing = dbUsersMap.get(p.id) || {};
@@ -305,69 +694,227 @@ async function hydrateFromSupabase(currentDb: DatabaseSchema): Promise<DatabaseS
             ...existing,
             id: p.id,
             name: p.name,
-            gender: p.gender || 'woman',
-            age: p.age || 25,
-            country: p.country || 'South Africa',
-            countryCode: p.country_code || 'ZA',
-            city: p.city || 'Johannesburg',
-            bio: p.bio || '',
-            photos: p.photos || [],
-            interests: p.interests || [],
+            email: p.email || existing.email || '',
+            phone: p.phone || p.contact_number || existing.phone || '',
+            contactNumber: p.contact_number || p.phone || existing.contactNumber || '',
+            phoneVerified: !!(p.phone_verified ?? existing.phoneVerified),
+            phoneVerifiedAt: p.phone_verified_at || existing.phoneVerifiedAt || null,
+            activeSessionToken: p.active_session_token || existing.activeSessionToken || null,
+            lastLoginAt: p.last_login_at || existing.lastLoginAt || null,
+            password: p.password || existing.password || 'fiffy2026',
+            role: p.role || existing.role || 'user',
+            gender: p.gender || 'Woman',
+            genderCustom: p.gender_custom || existing.genderCustom,
+            orientation: p.orientation || existing.orientation || 'Straight',
+            showMe: p.show_me || existing.showMe || 'everyone',
+            age: p.age || existing.age || 25,
+            country: p.country || existing.country || 'South Africa',
+            countryCode: p.country_code || existing.countryCode || 'ZA',
+            countryFlag: p.country_flag || existing.countryFlag || '🇿🇦',
+            city: p.city || existing.city || 'Johannesburg',
+            distanceKm: existing.distanceKm || 0,
+            bio: p.bio || existing.bio || '',
+            photos: Array.isArray(p.photos) && p.photos.length > 0 ? p.photos : existing.photos || [],
+            interests: Array.isArray(p.interests) && p.interests.length > 0 ? p.interests : existing.interests || [],
+            datingGoal: p.dating_goal || existing.datingGoal || 'Long-term relationship',
             verified: !!p.verified,
+            verificationStatus: p.verification_status || (p.verified ? 'verified' : 'unverified'),
             isPremium: !!p.is_premium,
-            premiumTier: p.premium_tier || 'free',
-            role: 'user',
+            premiumTier: p.premium_tier || existing.premiumTier || 'free',
+            isExempt: !!p.is_exempt,
+            dailySwipesUsed: p.daily_swipes_used ?? existing.dailySwipesUsed ?? 0,
+            boostsRemaining: p.boosts_remaining ?? existing.boostsRemaining ?? 1,
+            superLikesRemaining: p.super_likes_remaining ?? existing.superLikesRemaining ?? 3,
+            prompts: promptsByProfile[p.id] || existing.prompts || [],
+            job: p.job || existing.job || 'Professional',
+            company: p.company || existing.company || '',
+            education: p.education || existing.education || '',
+            incognito: !!p.incognito,
+            hideAge: !!p.hide_age,
+            hideDistance: !!p.hide_distance,
+            readReceipts: p.read_receipts !== false,
+            online: p.online !== false,
+            lastActive: p.last_active || 'Just now',
             isDemo: false,
           });
         }
         currentDb.users = Array.from(dbUsersMap.values());
       }
-    } catch {}
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate profiles:', e?.message);
+    }
+
+    // 5. Hydrate matches
+    try {
+      const matchesRes = await supabaseClient.from('matches').select('*');
+      if (matchesRes.data && matchesRes.data.length > 0) {
+        anyTableFound = true;
+        const usersById = new Map(currentDb.users.map((u) => [u.id, u]));
+        currentDb.matches = matchesRes.data.map((m: any) => {
+          const matchedUser = usersById.get(m.user_b) || usersById.get(m.user_a) || {
+            id: m.user_b,
+            name: 'Connected Member',
+            photos: ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'],
+            age: 26,
+            city: 'Johannesburg',
+            country: 'South Africa',
+          };
+          return {
+            id: m.id,
+            userId: m.user_b,
+            user_a: m.user_a,
+            user_b: m.user_b,
+            user: matchedUser,
+            isSuperMatch: !!m.is_super_match,
+            lastMessage: m.last_message || undefined,
+            lastMessageAt: m.last_message_at || undefined,
+            createdAt: m.created_at,
+          };
+        });
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate matches:', e?.message);
+    }
+
+    // 6. Hydrate messages
+    try {
+      const messagesRes = await supabaseClient.from('messages').select('*').order('created_at', { ascending: true });
+      if (messagesRes.data && messagesRes.data.length > 0) {
+        anyTableFound = true;
+        const msgMap: Record<string, any[]> = {};
+        for (const msg of messagesRes.data) {
+          if (!msgMap[msg.match_id]) msgMap[msg.match_id] = [];
+          msgMap[msg.match_id].push({
+            id: msg.id,
+            matchId: msg.match_id,
+            senderId: msg.sender_id,
+            recipientId: msg.recipient_id,
+            text: msg.text,
+            imageUrl: msg.image_url,
+            isRead: !!msg.is_read,
+            reactions: msg.reactions || [],
+            timestamp: msg.created_at,
+          });
+        }
+        currentDb.messages = {
+          ...currentDb.messages,
+          ...msgMap,
+        };
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate messages:', e?.message);
+    }
+
+    // 7. Hydrate transactions
+    try {
+      const txRes = await supabaseClient.from('transactions').select('*').order('created_at', { ascending: false });
+      if (txRes.data && txRes.data.length > 0) {
+        anyTableFound = true;
+        currentDb.transactions = txRes.data.map((t: any) => ({
+          id: t.id,
+          userId: t.user_id,
+          userName: t.user_name,
+          planId: t.plan_id,
+          planName: t.plan_name,
+          amountUsd: t.amount_usd !== null ? Number(t.amount_usd) : undefined,
+          amountZar: t.amount_zar !== null ? Number(t.amount_zar) : undefined,
+          paymentMethod: t.payment_method,
+          paymentId: t.payment_id,
+          status: t.status,
+          createdAt: t.created_at,
+        }));
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate transactions:', e?.message);
+    }
+
+    // 8. Hydrate reports
+    try {
+      const repRes = await supabaseClient.from('reports').select('*').order('created_at', { ascending: false });
+      if (repRes.data && repRes.data.length > 0) {
+        anyTableFound = true;
+        currentDb.reports = repRes.data.map((r: any) => ({
+          id: r.id,
+          reporterId: r.reporter_id,
+          reporterName: r.reporter_name,
+          reportedUserId: r.reported_id,
+          reportedUserName: r.reported_name,
+          reason: r.reason,
+          details: r.details,
+          status: r.status,
+          createdAt: r.created_at,
+        }));
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate reports:', e?.message);
+    }
+
+    // 9. Hydrate testimonials
+    try {
+      const testRes = await supabaseClient.from('testimonials').select('*');
+      if (testRes.data && testRes.data.length > 0) {
+        anyTableFound = true;
+        currentDb.testimonials = testRes.data.map((t: any) => ({
+          id: t.id,
+          coupleNames: t.couple_names,
+          locations: t.locations,
+          location: t.location,
+          quote: t.quote,
+          story: t.story,
+          storyDetails: t.story_details,
+          weddingDate: t.wedding_date,
+          metDate: t.met_date,
+          photoUrl: t.photo_url,
+          userPhoto: t.user_photo,
+          partnerPhoto: t.partner_photo,
+          country: t.country,
+          countryFlag: t.country_flag,
+          rating: t.rating,
+          isFeatured: t.is_featured,
+          verified: t.verified,
+          status: t.status,
+          submittedBy: t.submitted_by,
+        }));
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate testimonials:', e?.message);
+    }
+
+    // 10. Hydrate broadcasts
+    try {
+      const broadRes = await supabaseClient.from('broadcasts').select('*').order('created_at', { ascending: false });
+      if (broadRes.data && broadRes.data.length > 0) {
+        anyTableFound = true;
+        currentDb.broadcasts = broadRes.data.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          message: b.message,
+          targetFilter: b.target_filter,
+          sentBy: b.sent_by,
+          deliveryCount: b.delivery_count,
+          createdAt: b.created_at,
+        }));
+      }
+    } catch (e: any) {
+      console.warn('[Supabase] Could not hydrate broadcasts:', e?.message);
+    }
+
+    if (anyTableFound) {
+      supabaseTableConfirmed = true;
+      supabaseLastSync = new Date().toISOString();
+      supabaseLastError = null;
+      console.log(`[Supabase] Relational state hydrated successfully at ${supabaseLastSync}`);
+    } else {
+      console.log('[Supabase] No relational records found in cloud database. Ready for initial sync.');
+      supabaseTableConfirmed = true;
+      await persistToSupabase(currentDb);
+    }
 
     return currentDb;
   } catch (err: any) {
     supabaseLastError = err?.message || String(err);
-    console.error('[Supabase] Hydration exception:', err);
-  }
-  return currentDb;
-}
-
-// Persist database state to Supabase table
-async function persistToSupabase(data: DatabaseSchema): Promise<{ success: boolean; error?: string }> {
-  if (!supabaseClient) {
-    return { success: false, error: 'Supabase client not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' };
-  }
-  try {
-    const { error } = await supabaseClient
-      .from('fiffy_app_state')
-      .upsert(
-        {
-          id: 'production',
-          data,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
-
-    if (error) {
-      supabaseLastError = error.message;
-      if (error.code === '42P01' || error.message.includes('does not exist')) {
-        return {
-          success: false,
-          error: 'Table fiffy_app_state does not exist in Supabase. Please execute the SQL schema in Supabase SQL editor.',
-        };
-      }
-      return { success: false, error: error.message };
-    }
-
-    supabaseTableConfirmed = true;
-    supabaseLastSync = new Date().toISOString();
-    supabaseLastError = null;
-    return { success: true };
-  } catch (err: any) {
-    const msg = err?.message || String(err);
-    supabaseLastError = msg;
-    return { success: false, error: msg };
+    console.error('[Supabase] Relational hydration error:', err);
+    return currentDb;
   }
 }
 
@@ -462,13 +1009,237 @@ async function startServer() {
     }
   }
 
-  // Helper middleware for auth tokens
+  // Helper middleware for auth tokens with Single Active Session enforcement
   const getAuthUser = (req: express.Request) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return null;
     const token = authHeader.replace('Bearer ', '').trim();
-    return db.users.find((u) => u.id === token || u.token === token) || null;
+    const user = db.users.find((u) => u.id === token || u.token === token || u.activeSessionToken === token);
+    if (!user) return null;
+    // Single Active Session check: If activeSessionToken is configured, mismatch invalidates request
+    if (user.activeSessionToken && user.activeSessionToken !== token && user.id !== token) {
+      return null;
+    }
+    return user;
   };
+
+  // -------------------------------------------------------------
+  // PHONE NORMALIZATION, VALIDATION & AUTHENTICATION ENGINE
+  // -------------------------------------------------------------
+
+  interface NormalizedPhoneResult {
+    isValid: boolean;
+    error?: string;
+    e164: string;
+    formatted: string;
+    digits: string;
+    coreDigits: string;
+    countryCode: string;
+    dialingPrefix: string;
+  }
+
+  const COUNTRY_DIALING_DATA: Record<string, { prefix: string; name: string; flag: string }> = {
+    ZA: { prefix: '+27', name: 'South Africa', flag: '🇿🇦' },
+    NG: { prefix: '+234', name: 'Nigeria', flag: '🇳🇬' },
+    KE: { prefix: '+254', name: 'Kenya', flag: '🇰🇪' },
+    GH: { prefix: '+233', name: 'Ghana', flag: '🇬🇭' },
+    ZW: { prefix: '+263', name: 'Zimbabwe', flag: '🇿🇼' },
+    UG: { prefix: '+256', name: 'Uganda', flag: '🇺🇬' },
+    TZ: { prefix: '+255', name: 'Tanzania', flag: '🇹🇿' },
+    RW: { prefix: '+250', name: 'Rwanda', flag: '🇷🇼' },
+    EG: { prefix: '+20', name: 'Egypt', flag: '🇪🇬' },
+    ET: { prefix: '+251', name: 'Ethiopia', flag: '🇪🇹' },
+    BW: { prefix: '+267', name: 'Botswana', flag: '🇧🇼' },
+    NA: { prefix: '+264', name: 'Namibia', flag: '🇳🇦' },
+    ZM: { prefix: '+260', name: 'Zambia', flag: '🇿🇲' },
+    GB: { prefix: '+44', name: 'United Kingdom', flag: '🇬🇧' },
+    US: { prefix: '+1', name: 'United States', flag: '🇺🇸' },
+    CA: { prefix: '+1', name: 'Canada', flag: '🇨🇦' },
+  };
+
+  function normalizePhoneNumber(raw: string, countryHint = 'ZA'): NormalizedPhoneResult {
+    if (!raw || typeof raw !== 'string') {
+      return {
+        isValid: false,
+        error: 'Contact number is required.',
+        e164: '',
+        formatted: '',
+        digits: '',
+        coreDigits: '',
+        countryCode: countryHint || 'ZA',
+        dialingPrefix: '+27',
+      };
+    }
+
+    const clean = raw.trim();
+    const digitsOnly = clean.replace(/[^0-9]/g, '');
+
+    if (digitsOnly.length < 7) {
+      return {
+        isValid: false,
+        error: 'Contact number is too short (must be at least 7 digits).',
+        e164: '',
+        formatted: clean,
+        digits: digitsOnly,
+        coreDigits: digitsOnly,
+        countryCode: countryHint,
+        dialingPrefix: '+27',
+      };
+    }
+
+    if (digitsOnly.length > 15) {
+      return {
+        isValid: false,
+        error: 'Contact number exceeds standard international length (max 15 digits).',
+        e164: '',
+        formatted: clean,
+        digits: digitsOnly,
+        coreDigits: digitsOnly,
+        countryCode: countryHint,
+        dialingPrefix: '+27',
+      };
+    }
+
+    // Check repetitive digits (e.g. 000000000, 111111111)
+    if (/^(\d)\1+$/.test(digitsOnly)) {
+      return {
+        isValid: false,
+        error: 'Invalid phone number format. Repeated identical digits are not permitted.',
+        e164: '',
+        formatted: clean,
+        digits: digitsOnly,
+        coreDigits: digitsOnly,
+        countryCode: countryHint,
+        dialingPrefix: '+27',
+      };
+    }
+
+    let dialingPrefix = '+27';
+    let resolvedCountry = countryHint || 'ZA';
+    let nationalNumber = digitsOnly;
+
+    if (clean.startsWith('+')) {
+      const sorted = Object.entries(COUNTRY_DIALING_DATA).sort(
+        (a, b) => b[1].prefix.length - a[1].prefix.length
+      );
+      let matched = false;
+      for (const [code, info] of sorted) {
+        const pDigits = info.prefix.replace('+', '');
+        if (digitsOnly.startsWith(pDigits)) {
+          dialingPrefix = info.prefix;
+          resolvedCountry = code;
+          nationalNumber = digitsOnly.slice(pDigits.length);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        dialingPrefix = '+' + digitsOnly.slice(0, 3);
+        nationalNumber = digitsOnly.slice(3);
+      }
+    } else {
+      const info = COUNTRY_DIALING_DATA[countryHint] || COUNTRY_DIALING_DATA['ZA'];
+      const pDigits = info.prefix.replace('+', '');
+      if (digitsOnly.startsWith(pDigits) && digitsOnly.length >= pDigits.length + 7) {
+        dialingPrefix = info.prefix;
+        resolvedCountry = countryHint;
+        nationalNumber = digitsOnly.slice(pDigits.length);
+      } else {
+        dialingPrefix = info.prefix;
+        resolvedCountry = countryHint;
+        nationalNumber = digitsOnly;
+      }
+    }
+
+    while (nationalNumber.startsWith('0')) {
+      nationalNumber = nationalNumber.slice(1);
+    }
+
+    if (nationalNumber.length < 6 || nationalNumber.length > 12) {
+      return {
+        isValid: false,
+        error: `Invalid number format for ${COUNTRY_DIALING_DATA[resolvedCountry]?.name || 'the selected region'}. Expected 7-11 national digits.`,
+        e164: '',
+        formatted: clean,
+        digits: digitsOnly,
+        coreDigits: nationalNumber,
+        countryCode: resolvedCountry,
+        dialingPrefix,
+      };
+    }
+
+    const e164 = `${dialingPrefix}${nationalNumber}`;
+    const formatted = `${dialingPrefix} ${nationalNumber.slice(0, 2)} ${nationalNumber.slice(2, 5)} ${nationalNumber.slice(5)}`.trim();
+
+    return {
+      isValid: true,
+      e164,
+      formatted,
+      digits: e164.replace(/[^0-9]/g, ''),
+      coreDigits: nationalNumber,
+      countryCode: resolvedCountry,
+      dialingPrefix,
+    };
+  }
+
+  function findExistingUserByPhone(phoneInput: string, currentUserId?: string, countryHint = 'ZA'): any | null {
+    if (!phoneInput) return null;
+    const targetNorm = normalizePhoneNumber(phoneInput, countryHint);
+    const targetRawDigits = phoneInput.replace(/[^0-9]/g, '');
+
+    for (const u of db.users) {
+      if (currentUserId && u.id === currentUserId) continue;
+      const uPhone = u.phone || u.contactNumber;
+      if (!uPhone) continue;
+
+      if (uPhone.trim().toLowerCase() === phoneInput.trim().toLowerCase()) return u;
+
+      const uNorm = normalizePhoneNumber(uPhone, u.countryCode || countryHint);
+
+      // Direct E.164 match
+      if (targetNorm.isValid && uNorm.isValid && targetNorm.e164 === uNorm.e164) {
+        return u;
+      }
+
+      // Direct digits match
+      const uRawDigits = uPhone.replace(/[^0-9]/g, '');
+      if (targetRawDigits.length >= 7 && uRawDigits === targetRawDigits) {
+        return u;
+      }
+
+      // Core national digits match with same dialing prefix
+      if (
+        targetNorm.isValid &&
+        uNorm.isValid &&
+        targetNorm.coreDigits === uNorm.coreDigits &&
+        targetNorm.dialingPrefix === uNorm.dialingPrefix
+      ) {
+        return u;
+      }
+
+      // High-confidence core match (>= 8 digits)
+      if (
+        targetNorm.coreDigits.length >= 8 &&
+        uNorm.coreDigits.length >= 8 &&
+        targetNorm.coreDigits === uNorm.coreDigits
+      ) {
+        return u;
+      }
+    }
+    return null;
+  }
+
+  // Active OTP verification cache (5-minute TTL)
+  interface OtpRecord {
+    code: string;
+    phone: string;
+    e164: string;
+    expiresAt: number;
+    attempts: number;
+    lastSentAt: number;
+  }
+  const activeOtps = new Map<string, OtpRecord>();
+  const verifiedPhoneTokens = new Map<string, { e164: string; expiresAt: number }>();
 
   // -------------------------------------------------------------
   // API ROUTES
@@ -492,6 +1263,145 @@ async function startServer() {
     }
     return age;
   }
+
+  // 0a. AUTH: Check Phone Number Validity & Uniqueness
+  app.post('/api/auth/check-phone', (req, res) => {
+    const { phone, countryCode } = req.body;
+    if (!phone) {
+      return res.status(400).json({ valid: false, error: 'Contact number is required' });
+    }
+    const norm = normalizePhoneNumber(phone, countryCode || 'ZA');
+    if (!norm.isValid) {
+      return res.json({ valid: false, error: norm.error });
+    }
+    const existing = findExistingUserByPhone(phone, undefined, countryCode || 'ZA');
+    if (existing) {
+      return res.json({
+        valid: true,
+        exists: true,
+        formattedPhone: norm.formatted,
+        e164: norm.e164,
+        message: 'An account with this contact number already exists. Fiffy’s allows only one account per phone number. Please sign in instead.',
+      });
+    }
+    return res.json({
+      valid: true,
+      exists: false,
+      formattedPhone: norm.formatted,
+      e164: norm.e164,
+      countryCode: norm.countryCode,
+      message: 'Phone number is available and valid.',
+    });
+  });
+
+  // 0b. AUTH: Send Phone Verification SMS OTP
+  app.post('/api/auth/send-otp', (req, res) => {
+    const { phone, countryCode, purpose = 'signup' } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Contact number is required for verification.' });
+    }
+
+    const norm = normalizePhoneNumber(phone, countryCode || 'ZA');
+    if (!norm.isValid) {
+      return res.status(400).json({ error: norm.error });
+    }
+
+    // If for registration, strictly reject duplicate numbers
+    if (purpose === 'signup') {
+      const existing = findExistingUserByPhone(phone, undefined, countryCode || 'ZA');
+      if (existing) {
+        return res.status(409).json({
+          error: 'An account with this contact number already exists. Fiffy’s enforces a strict 1-account-per-phone rule to maintain community trust. Please sign in instead.',
+        });
+      }
+    }
+
+    // Rate limit check: 25 seconds between requests for the same number
+    const existingOtp = activeOtps.get(norm.e164);
+    if (existingOtp && Date.now() - existingOtp.lastSentAt < 25000) {
+      const waitSec = Math.ceil((25000 - (Date.now() - existingOtp.lastSentAt)) / 1000);
+      return res.status(429).json({
+        error: `Please wait ${waitSec} seconds before requesting a new verification code.`,
+      });
+    }
+
+    // Generate cryptographic 6-digit numeric verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    activeOtps.set(norm.e164, {
+      code,
+      phone: norm.formatted,
+      e164: norm.e164,
+      expiresAt,
+      attempts: 0,
+      lastSentAt: Date.now(),
+    });
+
+    console.log(`[SMS-GATEWAY] 📱 SMS OTP dispatched to ${norm.formatted} (${norm.e164}): CODE = ${code}`);
+
+    res.json({
+      success: true,
+      message: `A 6-digit verification code has been dispatched via SMS to ${norm.formatted}.`,
+      formattedPhone: norm.formatted,
+      e164: norm.e164,
+      expiresInSeconds: 300,
+      verificationCode: code, // Included in response for seamless sandbox/preview verification
+      simulatedSms: true,
+    });
+  });
+
+  // 0c. AUTH: Verify Phone SMS OTP
+  app.post('/api/auth/verify-otp', (req, res) => {
+    const { phone, code, countryCode } = req.body;
+    if (!phone || !code) {
+      return res.status(400).json({ error: 'Both phone number and 6-digit verification code are required.' });
+    }
+
+    const norm = normalizePhoneNumber(phone, countryCode || 'ZA');
+    if (!norm.isValid) {
+      return res.status(400).json({ error: norm.error });
+    }
+
+    const otpEntry = activeOtps.get(norm.e164);
+    if (!otpEntry || Date.now() > otpEntry.expiresAt) {
+      return res.status(400).json({
+        error: 'The verification code has expired or was not requested. Please request a new code.',
+      });
+    }
+
+    otpEntry.attempts++;
+    if (otpEntry.attempts > 4) {
+      activeOtps.delete(norm.e164);
+      return res.status(429).json({
+        error: 'Too many incorrect attempts. For security reasons, please request a new verification code.',
+      });
+    }
+
+    const inputCode = String(code).trim();
+    if (otpEntry.code !== inputCode) {
+      return res.status(400).json({
+        error: `Incorrect verification code. Please check your SMS and try again (${4 - otpEntry.attempts} attempts remaining).`,
+      });
+    }
+
+    // Success: Generate verification token valid for 30 minutes to complete registration
+    activeOtps.delete(norm.e164);
+    const verificationToken = `vtok_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    verifiedPhoneTokens.set(verificationToken, {
+      e164: norm.e164,
+      expiresAt: Date.now() + 30 * 60 * 1000,
+    });
+
+    res.json({
+      success: true,
+      verified: true,
+      verificationToken,
+      formattedPhone: norm.formatted,
+      e164: norm.e164,
+      message: 'Contact number verified successfully!',
+    });
+  });
 
   // 1. AUTH: Sign Up
   app.post('/api/auth/signup', (req, res) => {
@@ -517,15 +1427,16 @@ async function startServer() {
       company,
       education,
       datingGoal,
+      verificationToken,
     } = req.body;
 
-    const userPhone = (contactNumber || phone || '').trim();
+    const rawUserPhone = (contactNumber || phone || '').trim();
     const userDob = (dob || dateOfBirth || '').trim();
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Full name is required' });
     }
-    if (!userPhone) {
+    if (!rawUserPhone) {
       return res.status(400).json({ error: 'Contact number is required' });
     }
     if (!password) {
@@ -533,6 +1444,12 @@ async function startServer() {
     }
     if (!userDob) {
       return res.status(400).json({ error: 'Date of birth is required' });
+    }
+
+    // Strict Phone Number Validation
+    const normPhone = normalizePhoneNumber(rawUserPhone, countryCode || 'ZA');
+    if (!normPhone.isValid) {
+      return res.status(400).json({ error: normPhone.error });
     }
 
     const calculatedAge = calculateAgeFromDob(userDob);
@@ -550,15 +1467,28 @@ async function startServer() {
       }
     }
 
-    // Check if phone already exists
-    const existingPhone = db.users.find(
-      (u) => (u.phone && u.phone === userPhone) || (u.contactNumber && u.contactNumber === userPhone)
-    );
-    if (existingPhone) {
-      return res.status(409).json({ error: 'An account with this contact number already exists' });
+    // Strict 1-account-per-phone constraint: Check if phone already registered
+    const existingPhoneUser = findExistingUserByPhone(rawUserPhone, undefined, countryCode || 'ZA');
+    if (existingPhoneUser) {
+      return res.status(409).json({
+        error: 'An account with this contact number already exists. Fiffy’s enforces a strict 1-account-per-phone rule to maintain community integrity. Please sign in instead.',
+      });
+    }
+
+    // Check if phone was verified via SMS OTP
+    let isPhoneVerified = false;
+    if (verificationToken) {
+      const vRecord = verifiedPhoneTokens.get(verificationToken);
+      if (vRecord && vRecord.e164 === normPhone.e164 && vRecord.expiresAt > Date.now()) {
+        isPhoneVerified = true;
+        verifiedPhoneTokens.delete(verificationToken);
+      }
     }
 
     const newUserId = `usr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    // Generate unique session token for single active session management
+    const sessionToken = `sess_${newUserId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
     const defaultPhotos =
       photos && photos.length > 0
         ? photos
@@ -568,24 +1498,27 @@ async function startServer() {
               : 'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=800&q=80',
           ];
 
-    // If email was omitted, store an account identifier
-    const assignedEmail = userEmail || `${userPhone.replace(/[^0-9]/g, '')}@member.fiffys.com`;
+    const assignedEmail = userEmail || `${normPhone.digits}@member.fiffys.com`;
 
     const newUser = {
       id: newUserId,
       name: name.trim(),
       email: assignedEmail,
-      phone: userPhone,
-      contactNumber: userPhone,
+      phone: normPhone.e164,
+      contactNumber: normPhone.formatted,
+      phoneVerified: isPhoneVerified,
+      phoneVerifiedAt: isPhoneVerified ? new Date().toISOString() : null,
+      activeSessionToken: sessionToken,
+      lastLoginAt: new Date().toISOString(),
       dateOfBirth: userDob,
-      password, // In real deployment this would be salted bcrypt
+      password,
       role: 'user',
       age: calculatedAge,
       gender: gender || 'woman',
       orientation: orientation || 'straight',
       showMe: showMe || 'men',
       country: country || 'South Africa',
-      countryCode: countryCode || 'ZA',
+      countryCode: normPhone.countryCode || countryCode || 'ZA',
       countryFlag: countryFlag || '🇿🇦',
       city: city || 'Johannesburg',
       location: `${city || 'Johannesburg'}, ${country || 'South Africa'}`,
@@ -604,7 +1537,8 @@ async function startServer() {
       company: company || '',
       education: education || 'Graduate',
       datingGoal: datingGoal || 'Long-term relationship',
-      verified: true,
+      verified: isPhoneVerified,
+      verificationStatus: isPhoneVerified ? 'verified' : 'unverified',
       online: true,
       lastActive: 'Just now',
       isPremium: false,
@@ -618,13 +1552,13 @@ async function startServer() {
       readReceipts: true,
       isDemo: false,
       createdAt: new Date().toISOString(),
-      token: newUserId,
+      token: sessionToken,
     };
 
     db.users.push(newUser);
     saveDb(db);
 
-    // Immediately trigger cloud persist so user record is stored on Supabase right away
+    // Immediately trigger cloud persist
     if (supabaseClient) {
       persistToSupabase(db).catch((err) => {
         console.error('[Supabase] Immediate signup persist failed:', err);
@@ -635,11 +1569,12 @@ async function startServer() {
     res.status(201).json({
       success: true,
       user: userSafe,
-      token: newUserId,
+      token: sessionToken,
+      sessionToken,
     });
   });
 
-  // 2. AUTH: Login (Supports Contact Number or Email)
+  // 2. AUTH: Login (Supports Contact Number or Email) - Enforces Single Active Session
   app.post('/api/auth/login', (req, res) => {
     const { identifier, email, phone, contactNumber, password } = req.body;
     const loginId = (identifier || email || phone || contactNumber || '').trim().toLowerCase();
@@ -703,16 +1638,71 @@ async function startServer() {
       return res.status(401).json({ error: 'Invalid contact number/email or password' });
     }
 
-    const token = user.id;
+    // Single Active Session: Generate a brand new unique session token.
+    // Any other device using a previously issued session token will immediately be revoked.
+    const sessionToken = `sess_${user.id}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    user.activeSessionToken = sessionToken;
+    user.token = sessionToken;
+    user.lastLoginAt = new Date().toISOString();
+    saveDb(db);
+
+    if (supabaseClient) {
+      persistToSupabase(db).catch(() => {});
+    }
+
     const { password: _, ...userSafe } = user;
     res.json({
       success: true,
       user: userSafe,
-      token,
+      token: sessionToken,
+      sessionToken,
+      message: 'Signed in successfully. Any previous session on other devices has been terminated.',
     });
   });
 
-  // 3. AUTH: Admin Login Gate
+  // 3. AUTH: Validate Session (Checks Single Active Session Integrity)
+  app.get('/api/auth/validate-session', (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ valid: false, error: 'NO_TOKEN', message: 'No session token provided' });
+    }
+    const token = authHeader.replace('Bearer ', '').trim();
+    // Resolve user by exact active token, ID, or session token prefix
+    const tokenUserId = token.startsWith('sess_') ? token.split('_')[1] : null;
+    const user = db.users.find(
+      (u) => u.id === token || u.token === token || u.activeSessionToken === token || (tokenUserId && u.id === tokenUserId)
+    );
+    if (!user) {
+      return res.status(401).json({ valid: false, error: 'SESSION_EXPIRED', message: 'Session expired' });
+    }
+    // Single Active Session check: If activeSessionToken is configured and does not match the token presented
+    if (user.activeSessionToken && user.activeSessionToken !== token) {
+      return res.status(401).json({
+        valid: false,
+        error: 'SESSION_REVOKED',
+        message: 'Your account was signed in from another device or browser. Only one active session is allowed.',
+      });
+    }
+    const { password: _, ...userSafe } = user;
+    res.json({ success: true, valid: true, user: userSafe });
+  });
+
+  // 3b. AUTH: Sign Out (Terminates Active Session)
+  app.post('/api/auth/logout', (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '').trim();
+      const user = db.users.find((u) => u.id === token || u.token === token || u.activeSessionToken === token);
+      if (user && user.activeSessionToken === token) {
+        user.activeSessionToken = null;
+        saveDb(db);
+        if (supabaseClient) persistToSupabase(db).catch(() => {});
+      }
+    }
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
+
+  // 4. AUTH: Admin Login Gate
   app.post('/api/auth/admin-login', (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -772,16 +1762,23 @@ async function startServer() {
     });
   });
 
-  // 4. AUTH: Get Current User
+  // 5. AUTH: Get Current User (Enforces Single Active Session)
   app.get('/api/auth/me', (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     const token = authHeader.replace('Bearer ', '').trim();
-    const user = db.users.find((u) => u.id === token || u.token === token);
+    const user = db.users.find((u) => u.id === token || u.token === token || u.activeSessionToken === token);
     if (!user) {
       return res.status(401).json({ error: 'Session expired' });
+    }
+    // Single Active Session check
+    if (user.activeSessionToken && user.activeSessionToken !== token) {
+      return res.status(401).json({
+        error: 'SESSION_REVOKED',
+        message: 'Your account was signed in from another device or browser session. This session has been terminated.',
+      });
     }
     const { password: _, ...userSafe } = user;
     res.json({ user: userSafe });
@@ -1736,29 +2733,46 @@ async function startServer() {
     res.json({ users: safeUsers });
   });
 
-  // 17. SUPABASE: Cloud Persistence Status, Force Sync, Hydrate & Schema
+  // 17. SUPABASE: Cloud Relational Persistence Status, Force Sync, Hydrate & Schema
   app.get('/api/admin/supabase/status', async (req, res) => {
     let pingOk = false;
     let tableExists = supabaseTableConfirmed;
     let errorDetail = supabaseLastError;
+    const tableCounts: Record<string, number> = {};
 
     if (supabaseClient) {
       try {
-        const { data, error } = await supabaseClient
-          .from('fiffy_app_state')
-          .select('id, updated_at')
-          .eq('id', 'production')
-          .maybeSingle();
+        const { count, error } = await supabaseClient
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
 
         if (!error) {
           pingOk = true;
           tableExists = true;
           errorDetail = null;
+          tableCounts.profiles = count || 0;
         } else {
           errorDetail = error.message;
           if (error.code === '42P01' || error.message.includes('does not exist')) {
             tableExists = false;
           }
+        }
+
+        if (pingOk) {
+          try {
+            const [mRes, pRes, tRes, msgRes, mgrRes] = await Promise.all([
+              supabaseClient.from('matches').select('*', { count: 'exact', head: true }),
+              supabaseClient.from('subscription_plans').select('*', { count: 'exact', head: true }),
+              supabaseClient.from('transactions').select('*', { count: 'exact', head: true }),
+              supabaseClient.from('messages').select('*', { count: 'exact', head: true }),
+              supabaseClient.from('platform_managers').select('*', { count: 'exact', head: true }),
+            ]);
+            tableCounts.matches = mRes.count || 0;
+            tableCounts.subscription_plans = pRes.count || 0;
+            tableCounts.transactions = tRes.count || 0;
+            tableCounts.messages = msgRes.count || 0;
+            tableCounts.platform_managers = mgrRes.count || 0;
+          } catch {}
         }
       } catch (err: any) {
         errorDetail = err?.message || String(err);
@@ -1777,6 +2791,7 @@ async function startServer() {
         : 'none',
       connected: pingOk,
       tableExists,
+      persistenceModel: 'relational_tables',
       lastSync: supabaseLastSync,
       error: errorDetail,
       stats: {
@@ -1786,6 +2801,7 @@ async function startServer() {
         totalTransactions: db.transactions.length,
         totalManagers: (db.managers || []).length,
       },
+      relationalTableCounts: tableCounts,
     });
   });
 

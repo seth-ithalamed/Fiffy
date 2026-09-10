@@ -43,58 +43,17 @@ function SelfieModal({ photo, onClose }: { photo: string; onClose: () => void })
   );
 }
 
-const DEMO_PERSONAS = [
-  {
-    id: 'lerato.khumalo@fiffys.com',
-    name: 'Lerato Khumalo',
-    flag: '🇿🇦',
-    role: 'Product Designer',
-    city: 'Johannesburg',
-    photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-    tier: 'Gold VIP',
-  },
-  {
-    id: 'amara.okafor@demo.fiffys.com',
-    name: 'Amara Okafor',
-    flag: '🇳🇬',
-    role: 'Medical Doctor',
-    city: 'Lagos',
-    photo: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=300&auto=format&fit=crop&q=80',
-    tier: 'Gold VIP',
-  },
-  {
-    id: 'thabo.ndlovu@demo.fiffys.com',
-    name: 'Thabo Ndlovu',
-    flag: '🇿🇦',
-    role: 'Architect',
-    city: 'Sandton',
-    photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
-    tier: 'Gold VIP',
-  },
-  {
-    id: 'kwame.mensah@demo.fiffys.com',
-    name: 'Kwame Mensah',
-    flag: '🇬🇭',
-    role: 'Investment Banker',
-    city: 'Accra',
-    photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
-    tier: 'Gold VIP',
-  },
-];
-
 export default function ProfileScreen() {
   const {
     currentUser,
     updateCurrentUser,
     verifySelfie,
     logoutUser,
-    switchDemoAccount,
     authUser,
     showToast,
     setIsFcmModalOpen,
   } = useApp();
   const [selfieOpen, setSelfieOpen] = useState(false);
-  const [switchingId, setSwitchingId] = useState<string | null>(null);
 
   const completeness = (() => {
     let s = 0;
@@ -277,8 +236,8 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     key={item.value}
                     style={[
-                      styles.demoSwitchCard,
-                      isSelected && styles.demoSwitchCardActive,
+                      styles.optionCard,
+                      isSelected && styles.optionCardActive,
                     ]}
                     onPress={() => updateCurrentUser({ childrenStatus: item.value })}
                   >
@@ -454,7 +413,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Sign out & Demo switcher */}
+          {/* Account & Sign out */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>🛡 Account & Security</Text>
             <View style={styles.signOutRow}>
@@ -474,7 +433,7 @@ export default function ProfileScreen() {
                 onPress={() =>
                   Alert.alert(
                     'Sign Out of Fiffy\'s',
-                    'Are you sure you want to sign out? You can sign back in anytime or choose any demo account.',
+                    'Are you sure you want to sign out? You can sign back in anytime with your credentials.',
                     [
                       { text: 'Cancel', style: 'cancel' },
                       {
@@ -490,57 +449,6 @@ export default function ProfileScreen() {
               >
                 <Text style={styles.signOutBtnText}>Sign Out</Text>
               </TouchableOpacity>
-            </View>
-
-            {/* Switch Demo Personas */}
-            <View style={styles.demoSwitchSection}>
-              <View style={styles.demoSwitchHeader}>
-                <Text style={styles.demoSwitchTitle}>SWITCH DEMO PERSONA</Text>
-                <Text style={styles.demoSwitchSub}>1-Tap switch to test different profiles & chats</Text>
-              </View>
-              <View style={styles.demoGrid}>
-                {DEMO_PERSONAS.map((p) => {
-                  const isActive = (authUser?.email === p.id) || (currentUser.name === p.name);
-                  const isSwitching = switchingId === p.id;
-                  return (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[styles.demoSwitchCard, isActive && styles.demoSwitchCardActive]}
-                      onPress={async () => {
-                        if (isActive) return;
-                        setSwitchingId(p.id);
-                        const res = await switchDemoAccount(p.id);
-                        setSwitchingId(null);
-                        if (res.success) {
-                          showToast('Switched Persona', `Active as ${p.name}`, 'success');
-                        }
-                      }}
-                      activeOpacity={0.8}
-                      disabled={isSwitching}
-                    >
-                      <Image source={{ uri: p.photo }} style={styles.demoSwitchAvatar} />
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Text style={styles.demoSwitchName} numberOfLines={1}>{p.flag} {p.name}</Text>
-                          {isActive && (
-                            <View style={styles.currentBadge}>
-                              <Text style={styles.currentBadgeText}>Active</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.demoSwitchRole} numberOfLines={1}>{p.role} • {p.city}</Text>
-                      </View>
-                      {isSwitching ? (
-                        <ActivityIndicator size="small" color={Colors.pinkLight} />
-                      ) : (
-                        <Text style={[styles.demoSwitchAction, isActive && styles.demoSwitchActionActive]}>
-                          {isActive ? 'Current' : 'Switch →'}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
             </View>
           </View>
 
@@ -613,56 +521,20 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(52,211,153,0.35)',
   },
   activeTagText: { color: '#34d399', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  demoSwitchSection: {
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  demoSwitchHeader: { marginBottom: 10 },
-  demoSwitchTitle: {
-    color: Colors.purpleDim,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  demoSwitchSub: { color: Colors.pinkLight, fontSize: 11, marginTop: 2, fontWeight: '500' },
-  demoGrid: { gap: 8 },
-  demoSwitchCard: {
+  optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 9,
+    padding: 10,
     gap: 10,
   },
-  demoSwitchCardActive: {
+  optionCardActive: {
     borderColor: Colors.pinkLight,
     backgroundColor: 'rgba(236,72,153,0.12)',
   },
-  demoSwitchAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  demoSwitchName: { color: Colors.white, fontSize: 12, fontWeight: '700' },
-  currentBadge: {
-    backgroundColor: 'rgba(236,72,153,0.25)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(236,72,153,0.4)',
-  },
-  currentBadgeText: { color: Colors.pinkLight, fontSize: 8, fontWeight: '800' },
-  demoSwitchRole: { color: Colors.purpleDim, fontSize: 10, marginTop: 1 },
-  demoSwitchAction: { color: Colors.pinkLight, fontSize: 11, fontWeight: '700' },
-  demoSwitchActionActive: { color: '#34d399', fontWeight: '800' },
 });
 
 const sv = StyleSheet.create({
