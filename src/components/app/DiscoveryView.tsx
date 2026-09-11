@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserProfile } from '../../types';
 import {
@@ -17,6 +17,7 @@ import {
   Sparkles,
   Globe,
   Lock,
+  Search,
 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 import { ALL_INTEREST_TAGS, AFRICAN_COUNTRIES } from '../../data/mockData';
@@ -45,6 +46,23 @@ export const DiscoveryView: React.FC = () => {
 
   const [showFiltersDrawer, setShowFiltersDrawer] = useState<boolean>(false);
   const [photoIndex, setPhotoIndex] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Filter profiles for search queries (guaranteed no default-picture profiles and gender compliant)
+  const displayedProfiles = useMemo(() => {
+    if (!searchQuery.trim()) return filteredProfiles;
+    const q = searchQuery.toLowerCase().trim();
+    return filteredProfiles.filter((p) => {
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.city && p.city.toLowerCase().includes(q)) ||
+        (p.country && p.country.toLowerCase().includes(q)) ||
+        (p.job && p.job.toLowerCase().includes(q)) ||
+        (p.bio && p.bio.toLowerCase().includes(q)) ||
+        (p.interests && p.interests.some((tag) => tag.toLowerCase().includes(q)))
+      );
+    });
+  }, [filteredProfiles, searchQuery]);
 
   // Motion drag values for swipe gesture
   const x = useMotionValue(0);
@@ -79,7 +97,7 @@ export const DiscoveryView: React.FC = () => {
   return (
     <div className="relative flex-1 flex flex-col h-full bg-[radial-gradient(circle_at_50%_35%,#1a0b2e_0%,#050208_100%)] text-slate-100 overflow-hidden">
       {/* Top Controls Bar */}
-      <div className="px-4 py-2.5 border-b border-white/[0.08] flex items-center justify-between z-20 bg-[#0e061d]/85 backdrop-blur-xl">
+      <div className="px-4 py-2.5 border-b border-white/[0.08] flex flex-wrap items-center justify-between gap-2 z-20 bg-[#0e061d]/85 backdrop-blur-xl">
         <div className="flex items-center gap-2">
           {/* View mode toggle: Swipe vs Grid */}
           <div className="flex items-center p-0.5 rounded-lg bg-[#160a2d]/80 border border-white/10">
@@ -112,12 +130,31 @@ export const DiscoveryView: React.FC = () => {
           </div>
 
           <span className="text-xs text-purple-300/80 font-medium">
-            {filteredProfiles.length} Singles in {filters.targetCountry === 'all' ? 'All Countries' : filters.targetCountry}
+            {displayedProfiles.length} Singles {filters.targetCountry === 'all' ? 'Worldwide' : `in ${filters.targetCountry}`}
           </span>
         </div>
 
-        {/* Filter Trigger */}
+        {/* Search Bar & Filter Trigger */}
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-purple-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search singles..."
+              className="bg-[#160a2d]/80 border border-white/10 rounded-full pl-8 pr-7 py-1 text-xs text-white placeholder-purple-300/50 focus:outline-none focus:border-pink-500 w-32 sm:w-44 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           <button
             id="open-filters-drawer-btn"
             onClick={() => setShowFiltersDrawer(true)}
@@ -375,27 +412,38 @@ export const DiscoveryView: React.FC = () => {
         ) : (
           /* GRID VIEW MODE */
           <div className="w-full max-w-5xl h-full overflow-y-auto pr-1">
-            {!filteredProfiles || filteredProfiles.length === 0 ? (
+            {!displayedProfiles || displayedProfiles.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-72 text-center p-6 my-auto">
                 <div className="w-16 h-16 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 mb-4">
                   <Globe className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold font-display text-white">
-                  No Singles Found in {filters.targetCountry === 'all' ? 'this filter' : filters.targetCountry}
+                  No Singles Found {searchQuery ? `matching "${searchQuery}"` : `in ${filters.targetCountry === 'all' ? 'this filter' : filters.targetCountry}`}
                 </h3>
                 <p className="text-xs text-purple-200/70 mt-2 max-w-xs">
-                  Expand your horizons by exploring all African countries or checking back as new singles register!
+                  {searchQuery
+                    ? 'Try clearing your search query or adjusting your discovery preferences.'
+                    : 'Expand your horizons by exploring all African countries or checking back as new singles register!'}
                 </p>
-                <button
-                  onClick={() => updateFilters({ targetCountry: 'all' })}
-                  className="mt-5 px-6 py-2.5 rounded-2xl gradient-fiffy text-white text-xs font-bold shadow-lg shadow-pink-500/25 hover:brightness-110"
-                >
-                  🌍 Explore All African Countries
-                </button>
+                {searchQuery ? (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="mt-5 px-6 py-2.5 rounded-2xl gradient-fiffy text-white text-xs font-bold shadow-lg shadow-pink-500/25 hover:brightness-110"
+                  >
+                    Clear Search Filter
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => updateFilters({ targetCountry: 'all' })}
+                    className="mt-5 px-6 py-2.5 rounded-2xl gradient-fiffy text-white text-xs font-bold shadow-lg shadow-pink-500/25 hover:brightness-110"
+                  >
+                    🌍 Explore All African Countries
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 pb-24">
-                {filteredProfiles.map((profile) => (
+                {displayedProfiles.map((profile) => (
                   <div
                     key={profile.id}
                     id={`profile-grid-item-${profile.id}`}

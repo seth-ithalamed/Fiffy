@@ -459,9 +459,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Filtered profiles for discovery deck
   const filteredProfiles = useMemo(() => {
     return deckProfiles.filter((p) => {
+      // 1. Exclude banned users
       if (bannedUserIds.includes(p.id)) return false;
 
-      // Country filter
+      // 2. Exclude current user from their own deck
+      if (currentUser?.id && p.id === currentUser.id) return false;
+
+      // 3. Exclude profiles using default profile pictures or lacking authentic photos
+      if (!p.photos || !Array.isArray(p.photos) || p.photos.length === 0) return false;
+      const hasRealPhoto = p.photos.some((photo) => {
+        if (!photo || typeof photo !== 'string' || !photo.trim()) return false;
+        const lower = photo.toLowerCase();
+        return !(
+          lower.includes('default-avatar') ||
+          lower.includes('avatar-placeholder') ||
+          lower.includes('placeholder') ||
+          lower.includes('dicebear') ||
+          lower.includes('ui-avatars') ||
+          lower.includes('blank-profile') ||
+          lower.includes('default_avatar') ||
+          lower.includes('sample_avatar')
+        );
+      });
+      if (!hasRealPhoto) return false;
+
+      // 4. Country filter
       if (filters.targetCountry && filters.targetCountry !== 'all') {
         const pCountry = (p.country || '').toLowerCase();
         const target = filters.targetCountry.toLowerCase();
@@ -470,11 +492,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }
 
-      // Gender filter
-      if (filters.genderPreference !== 'everyone') {
-        if (filters.genderPreference === 'women' && p.gender !== 'woman') return false;
-        if (filters.genderPreference === 'men' && p.gender !== 'man') return false;
-        if (filters.genderPreference === 'non-binary' && p.gender !== 'non-binary') return false;
+      // 5. Gender & Preference filter (When logged in as a man, show women not men unless he prefers men)
+      let effectiveGenderPref = filters.genderPreference;
+      if (effectiveGenderPref === 'everyone' && currentUser) {
+        if (currentUser.showMe === 'women' || currentUser.showMe === 'men') {
+          effectiveGenderPref = currentUser.showMe;
+        } else if (currentUser.gender === 'man') {
+          effectiveGenderPref = 'women';
+        } else if (currentUser.gender === 'woman') {
+          effectiveGenderPref = 'men';
+        }
+      }
+
+      if (effectiveGenderPref !== 'everyone') {
+        if (effectiveGenderPref === 'women' && p.gender !== 'woman') return false;
+        if (effectiveGenderPref === 'men' && p.gender !== 'man') return false;
+        if (effectiveGenderPref === 'non-binary' && p.gender !== 'non-binary') return false;
       }
 
       // Age range
@@ -494,7 +527,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       return true;
     });
-  }, [deckProfiles, bannedUserIds, filters]);
+  }, [deckProfiles, bannedUserIds, filters, currentUser]);
 
   const activeCard = filteredProfiles[currentCardIndex] || null;
 
@@ -546,6 +579,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ...prev,
           ...completeUser,
         }));
+        // Synchronize discovery filter gender preference to user preference
+        const targetGenderPref =
+          completeUser.showMe || (completeUser.gender === 'man' ? 'women' : completeUser.gender === 'woman' ? 'men' : 'everyone');
+        setFilters((prev) => ({ ...prev, genderPreference: targetGenderPref }));
+        setCurrentCardIndex(0);
         localStorage.setItem('fiffy_auth_user', JSON.stringify(completeUser));
         setActiveSurfaceState('web-app');
         setInAppTab('discover');
@@ -586,6 +624,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ...prev,
           ...completeUser,
         }));
+        // Synchronize discovery filter gender preference to user preference
+        const targetGenderPref =
+          completeUser.showMe || (completeUser.gender === 'man' ? 'women' : completeUser.gender === 'woman' ? 'men' : 'everyone');
+        setFilters((prev) => ({ ...prev, genderPreference: targetGenderPref }));
+        setCurrentCardIndex(0);
         localStorage.setItem('fiffy_auth_user', JSON.stringify(completeUser));
         setActiveSurfaceState('web-app');
         setInAppTab('discover');

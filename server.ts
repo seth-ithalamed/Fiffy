@@ -1294,8 +1294,48 @@ async function startServer() {
     });
   });
 
+  // -------------------------------------------------------------
+  // TWILIO SMS GATEWAY (LAZY INITIALIZATION)
+  // -------------------------------------------------------------
+  let twilioClientInstance: any = null;
+
+  async function sendTwilioSms(params: {
+    to: string;
+    body: string;
+  }): Promise<{ success: boolean; messageSid?: string; error?: string; simulated: boolean }> {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    if (!accountSid || !authToken || !fromNumber) {
+      console.log(
+        `[TWILIO-GATEWAY] ℹ️ Twilio credentials not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_PHONE_NUMBER missing). Falling back to simulated SMS dispatch.`
+      );
+      return { success: true, simulated: true };
+    }
+
+    try {
+      if (!twilioClientInstance) {
+        const twilio = (await import('twilio')).default;
+        twilioClientInstance = twilio(accountSid, authToken);
+      }
+
+      const message = await twilioClientInstance.messages.create({
+        body: params.body,
+        from: fromNumber,
+        to: params.to,
+      });
+
+      console.log(`[TWILIO-GATEWAY] ✅ Live SMS dispatched via Twilio to ${params.to}. Message SID: ${message.sid}`);
+      return { success: true, messageSid: message.sid, simulated: false };
+    } catch (err: any) {
+      console.error(`[TWILIO-GATEWAY] ⚠️ Twilio dispatch failed for ${params.to}:`, err.message || err);
+      return { success: false, error: err.message || 'Twilio SMS failed', simulated: false };
+    }
+  }
+
   // 0b. AUTH: Send Phone Verification SMS OTP
-  app.post('/api/auth/send-otp', (req, res) => {
+  app.post('/api/auth/send-otp', async (req, res) => {
     const { phone, countryCode, purpose = 'signup' } = req.body;
     if (!phone) {
       return res.status(400).json({ error: 'Contact number is required for verification.' });
@@ -1338,16 +1378,28 @@ async function startServer() {
       lastSentAt: Date.now(),
     });
 
-    console.log(`[SMS-GATEWAY] 📱 SMS OTP dispatched to ${norm.formatted} (${norm.e164}): CODE = ${code}`);
+    // Dispatch via Twilio SMS Gateway
+    const twilioResult = await sendTwilioSms({
+      to: norm.e164,
+      body: `Your Fiffy's Match Making verification code is: ${code}. Valid for 5 minutes. Do not share this code with anyone.`,
+    });
+
+    console.log(
+      `[SMS-GATEWAY] 📱 SMS OTP dispatched to ${norm.formatted} (${norm.e164}): CODE = ${code} | Twilio: ${
+        twilioResult.simulated ? 'Simulated' : 'Sent (' + twilioResult.messageSid + ')'
+      }`
+    );
 
     res.json({
       success: true,
-      message: `A 6-digit verification code has been dispatched via SMS to ${norm.formatted}.`,
+      message: twilioResult.simulated
+        ? `A 6-digit verification code has been dispatched via SMS to ${norm.formatted}.`
+        : `Verification code successfully sent via Twilio SMS to ${norm.formatted}.`,
       formattedPhone: norm.formatted,
       e164: norm.e164,
       expiresInSeconds: 300,
-      verificationCode: code, // Included in response for seamless sandbox/preview verification
-      simulatedSms: true,
+      verificationCode: twilioResult.simulated ? code : undefined,
+      simulatedSms: twilioResult.simulated,
     });
   });
 
@@ -1845,19 +1897,87 @@ async function startServer() {
     res.json({ success: true, user: userSafe });
   });
 
+  // Helper: Check if profile has an authentic uploaded photo (not a default placeholder)
+  function hasAuthenticPhoto(photos?: string[]): boolean {
+    if (!photos || !Array.isArray(photos) || photos.length === 0) return false;
+    return photos.some((photo) => {
+      if (!photo || typeof photo !== 'string' || !photo.trim()) return false;
+      const lower = photo.toLowerCase();
+      return !(
+        lower.includes('default-avatar') ||
+        lower.includes('avatar-placeholder') ||
+        lower.includes('placeholder') ||
+        lower.includes('dicebear') ||
+        lower.includes('ui-avatars') ||
+        lower.includes('blank-profile') ||
+        lower.includes('default_avatar') ||
+        lower.includes('sample_avatar')
+      );
+    });
+  }
+
   // 5. PROFILES: Discovery Deck (filtered by country, gender, etc.)
   app.get('/api/profiles', (req, res) => {
     const { country, gender, showMe } = req.query;
+    const authUser = getAuthUser(req);
     let profiles = db.users.filter((u) => u.role !== 'admin' && !u.isBanned);
 
+    // 1. Exclude the authenticated user from their own deck
+    if (authUser) {
+      profiles = profiles.filter((p) => p.id !== authUser.id);
+    }
+
+    // 2. Strict default avatar filter: Accounts using default pictures or missing photos are excluded from the deck & search
+    profiles = profiles.filter((p) => hasAuthenticPhoto(p.photos));
+
+    // 3. Country filter
     if (country && country !== 'all') {
       profiles = profiles.filter((p) =>
         p.country?.toLowerCase() === String(country).toLowerCase()
       );
     }
 
-    if (gender && gender !== 'everyone') {
-      profiles = profiles.filter((p) => p.gender === gender);
+    // 4. Gender & Preference filter (e.g. When logged in as a man, deck shows women not men unless he prefers men)
+    let effectiveTargetGender: 'woman' | 'man' | 'everyone' | 'non-binary' = 'everyone';
+
+    if (showMe === 'women' || showMe === 'woman') {
+      effectiveTargetGender = 'woman';
+    } else if (showMe === 'men' || showMe === 'man') {
+      effectiveTargetGender = 'man';
+    } else if (showMe === 'everyone') {
+      effectiveTargetGender = 'everyone';
+    } else if (showMe === 'non-binary') {
+      effectiveTargetGender = 'non-binary';
+    } else if (authUser) {
+      // Use authenticated user's configured preference
+      if (authUser.showMe === 'women') {
+        effectiveTargetGender = 'woman';
+      } else if (authUser.showMe === 'men') {
+        effectiveTargetGender = 'man';
+      } else if (authUser.showMe === 'everyone') {
+        effectiveTargetGender = 'everyone';
+      } else {
+        // Natural default based on user gender: Man sees women, Woman sees men
+        if (authUser.gender === 'man') {
+          effectiveTargetGender = 'woman';
+        } else if (authUser.gender === 'woman') {
+          effectiveTargetGender = 'man';
+        }
+      }
+    } else if (gender) {
+      // Query specifies user gender or target gender
+      if (gender === 'woman' || gender === 'women') {
+        effectiveTargetGender = 'woman';
+      } else if (gender === 'man') {
+        // If query specifies requesting user is a man, show women unless specified otherwise
+        effectiveTargetGender = 'woman';
+      } else if (gender === 'men') {
+        effectiveTargetGender = 'man';
+      }
+    }
+
+    if (effectiveTargetGender !== 'everyone') {
+      profiles = profiles.filter((p) => p.gender === effectiveTargetGender);
     }
 
     // Strip passwords, emails, phones, and contactNumbers to ensure contact numbers and emails are hidden from everyone

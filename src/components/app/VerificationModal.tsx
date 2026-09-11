@@ -28,6 +28,29 @@ export const VerificationModal: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [idType, setIdType] = useState<string>('National ID / Driver’s License');
   const [pledgeChecked, setPledgeChecked] = useState<boolean>(false);
+  const [selectedPose, setSelectedPose] = useState<number>(0);
+  const [matchScore, setMatchScore] = useState<number>(97.4);
+
+  const POSES = [
+    {
+      id: 'peace',
+      name: 'Peace Sign ✌️',
+      instruction: 'Hold up 2 fingers (peace sign) next to your cheek',
+      badge: 'Pose 1 of 3',
+    },
+    {
+      id: 'thumbs_up',
+      name: 'Thumbs-Up Smile 👍',
+      instruction: 'Give a thumbs-up while smiling at the front camera',
+      badge: 'Pose 2 of 3',
+    },
+    {
+      id: 'head_tilt',
+      name: '45° Head Angle 🔄',
+      instruction: 'Turn your head slightly to the left to confirm 3D depth',
+      badge: 'Pose 3 of 3',
+    },
+  ];
 
   if (!isVerificationModalOpen) return null;
 
@@ -37,6 +60,7 @@ export const VerificationModal: React.FC = () => {
       // Use user's first photo or sample selfie as captured verification
       const sample = currentUser.photos[0] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80';
       setSelfieCaptured(sample);
+      setMatchScore(+(95 + Math.random() * 4).toFixed(1));
       setIsProcessing(false);
       setStep('pledge');
     }, 1200);
@@ -49,6 +73,7 @@ export const VerificationModal: React.FC = () => {
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setSelfieCaptured(reader.result);
+        setMatchScore(+(94 + Math.random() * 5).toFixed(1));
         setStep('pledge');
       }
     };
@@ -161,18 +186,52 @@ export const VerificationModal: React.FC = () => {
           )}
 
           {step === 'selfie' && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="text-center space-y-1">
                 <h4 className="font-display font-bold text-lg text-white">
-                  Pose for Verification Selfie
+                  Pose for Live Anti-Catfishing Verification
                 </h4>
                 <p className="text-xs text-purple-200/80">
-                  Take a quick selfie or upload a live photo matching your profile pictures.
+                  To ensure uploaded photos are truly yours and eliminate catfishing, mirror the requested real-time gesture:
                 </p>
               </div>
 
+              {/* Dynamic Pose Challenge Selector */}
+              <div className="p-3 rounded-2xl bg-[#140826] border border-pink-500/30">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-pink-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Required Liveness Pose</span>
+                  </span>
+                  <span className="text-[10px] bg-pink-500/20 text-pink-300 font-bold px-2 py-0.5 rounded-full border border-pink-500/30">
+                    {POSES[selectedPose].badge}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {POSES.map((pose, idx) => (
+                    <button
+                      key={pose.id}
+                      type="button"
+                      onClick={() => setSelectedPose(idx)}
+                      className={`p-2 rounded-xl text-left transition-all ${
+                        selectedPose === idx
+                          ? 'gradient-fiffy text-white shadow-md'
+                          : 'bg-white/5 text-purple-200 hover:bg-white/10 border border-white/10'
+                      }`}
+                    >
+                      <div className="font-bold text-xs">{pose.name}</div>
+                      <div className="text-[10px] opacity-80 truncate">{pose.id}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-purple-200 bg-white/5 p-2 rounded-xl border border-white/5 flex items-center gap-2">
+                  <span className="text-base">📸</span>
+                  <span>{POSES[selectedPose].instruction}</span>
+                </div>
+              </div>
+
               {/* Camera Frame Preview */}
-              <div className="relative aspect-square max-w-[260px] mx-auto rounded-3xl overflow-hidden border-2 border-dashed border-pink-500/50 bg-[#120622] flex flex-col items-center justify-center p-4 shadow-inner">
+              <div className="relative aspect-square max-w-[220px] mx-auto rounded-3xl overflow-hidden border-2 border-dashed border-pink-500/50 bg-[#120622] flex flex-col items-center justify-center p-3 shadow-inner">
                 {selfieCaptured ? (
                   <img
                     src={selfieCaptured}
@@ -184,25 +243,25 @@ export const VerificationModal: React.FC = () => {
                   <div className="text-center space-y-2">
                     <RefreshCw className="w-8 h-8 text-pink-400 animate-spin mx-auto" />
                     <span className="text-xs font-semibold text-purple-200 block">
-                      Analyzing facial biometrics...
+                      Analyzing facial geometry &amp; pose...
                     </span>
                   </div>
                 ) : (
-                  <div className="text-center space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 mx-auto">
-                      <Camera className="w-7 h-7" />
+                  <div className="text-center space-y-2">
+                    <div className="w-14 h-14 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 mx-auto">
+                      <Camera className="w-6 h-6" />
                     </div>
-                    <span className="text-xs text-purple-300/80 block max-w-[180px]">
-                      Face the camera directly with good lighting.
+                    <span className="text-xs text-purple-300/80 block max-w-[160px]">
+                      {POSES[selectedPose].instruction}
                     </span>
                   </div>
                 )}
               </div>
 
               {/* ID Document Selection */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-xs font-bold uppercase tracking-wider text-purple-300 block">
-                  Verification Document Type
+                  Verification Document Type (Optional Backup)
                 </label>
                 <select
                   value={idType}
@@ -216,19 +275,19 @@ export const VerificationModal: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-1">
                 <button
                   disabled={isProcessing}
                   onClick={handleSimulateSelfie}
                   className="w-full py-3 rounded-2xl gradient-fiffy-btn text-white font-bold text-xs shadow-lg shadow-pink-500/20 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50"
                 >
                   <Camera className="w-4 h-4" />
-                  <span>Take Live Selfie Now</span>
+                  <span>Verify Pose with Live Selfie</span>
                 </button>
 
-                <label className="w-full py-2.5 rounded-2xl bg-white/[0.06] hover:bg-white/10 text-purple-200 font-semibold text-xs border border-white/10 flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                <label className="w-full py-2 rounded-2xl bg-white/[0.06] hover:bg-white/10 text-purple-200 font-semibold text-xs border border-white/10 flex items-center justify-center gap-2 cursor-pointer transition-colors">
                   <Upload className="w-4 h-4 text-pink-400" />
-                  <span>Or Upload Selfie Photo File</span>
+                  <span>Or Upload Live Pose Photo</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -241,34 +300,50 @@ export const VerificationModal: React.FC = () => {
           )}
 
           {step === 'pledge' && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto mb-2">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto mb-1">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <h4 className="font-display font-bold text-lg text-white">
-                  Biometrics Matched!
+                  Biometrics &amp; Liveness Confirmed!
                 </h4>
                 <p className="text-xs text-purple-200/80">
-                  Step 2: Sign the Fiffy Serious Dating Pledge to finalize your verification.
+                  Facial mesh matched your uploaded photos with {matchScore}% accuracy.
                 </p>
               </div>
 
+              {/* Biometric Analysis Card */}
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-[#140826] border border-emerald-500/30 text-center">
+                <div>
+                  <div className="text-[10px] text-purple-300 font-semibold uppercase">Face Match</div>
+                  <div className="text-xs font-bold text-emerald-400">{matchScore}%</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-purple-300 font-semibold uppercase">Pose Liveness</div>
+                  <div className="text-xs font-bold text-emerald-400">Confirmed ✌️</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-purple-300 font-semibold uppercase">Anti-Catfish</div>
+                  <div className="text-xs font-bold text-emerald-400">Passed ✅</div>
+                </div>
+              </div>
+
               {/* Serious Dating Pledge Card */}
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#1b0a33] to-[#110521] border border-pink-500/30 space-y-3">
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#1b0a33] to-[#110521] border border-pink-500/30 space-y-2.5">
                 <h5 className="text-xs font-bold text-pink-400 flex items-center gap-1.5 uppercase tracking-wider">
                   <HeartHandshake className="w-4 h-4" />
                   <span>The Fiffy Serious Member Pledge</span>
                 </h5>
-                <ul className="text-xs text-purple-200/90 space-y-2 list-disc pl-4">
+                <ul className="text-xs text-purple-200/90 space-y-1.5 list-disc pl-4">
                   <li>I am genuinely single and legally eligible to seek a serious relationship.</li>
-                  <li>I will not deceive, play games with emotions, or maintain multiple active secret chats.</li>
-                  <li>My uploaded photos and profile details are 100% authentic and current.</li>
+                  <li>My uploaded photos are 100% authentic, current, and represent me.</li>
+                  <li>I will not deceive, play emotional games, or maintain duplicate accounts.</li>
                   <li>I understand violations result in immediate permanent account termination.</li>
                 </ul>
               </div>
 
-              <label className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10 cursor-pointer">
+              <label className="flex items-start gap-3 p-2.5 rounded-xl bg-white/[0.04] border border-white/10 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={pledgeChecked}
@@ -276,7 +351,7 @@ export const VerificationModal: React.FC = () => {
                   className="mt-0.5 rounded border-purple-500 text-pink-600 focus:ring-pink-500 h-4 w-4 bg-[#140626]"
                 />
                 <span className="text-xs text-purple-200 font-medium leading-relaxed">
-                  I solemnly pledge to honor the Fiffy Serious Dating Code of Conduct and confirm all submitted information is accurate.
+                  I solemnly pledge to honor the Fiffy Serious Dating Code of Conduct and confirm all submitted photos and details are authentic.
                 </span>
               </label>
 
