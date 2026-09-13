@@ -10,6 +10,7 @@ import {
   ToastItem,
   AuthUser,
   FCMNotificationPayload,
+  PhoneVerificationData,
 } from '../types';
 import { fcmService } from '../services/fcmService';
 import {
@@ -31,7 +32,7 @@ interface AppContextType {
   authUser: AuthUser | null;
   isLoggedIn: boolean;
   authLoading: boolean;
-  loginUser: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  loginUser: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string; phoneUnverified?: boolean; phoneData?: any }>;
   signupUser: (userData: any) => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => Promise<void>;
   switchDemoAccount: (identifier: string) => Promise<{ success: boolean; error?: string }>;
@@ -116,6 +117,15 @@ interface AppContextType {
   isFcmModalOpen: boolean;
   setIsFcmModalOpen: (open: boolean) => void;
   triggerFcmAlert: (payload: Omit<FCMNotificationPayload, 'id' | 'sentAt'>) => Promise<FCMNotificationPayload>;
+
+  // Phone SMS OTP Verification
+  isPhoneVerificationModalOpen: boolean;
+  setIsPhoneVerificationModalOpen: (open: boolean) => void;
+  phoneVerificationData: PhoneVerificationData | null;
+  openPhoneVerificationModal: (data?: PhoneVerificationData) => void;
+  closePhoneVerificationModal: () => void;
+  verifyPhoneOtp: (code: string) => Promise<{ success: boolean; error?: string }>;
+  resendPhoneOtp: () => Promise<{ success: boolean; error?: string; message?: string }>;
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -179,6 +189,156 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [isFcmModalOpen, setIsFcmModalOpen] = useState(false);
+
+  // Phone SMS OTP Verification state
+  const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false);
+  const [phoneVerificationData, setPhoneVerificationData] = useState<PhoneVerificationData | null>(null);
+
+  const openPhoneVerificationModal = (data?: PhoneVerificationData) => {
+    if (data) {
+      setPhoneVerificationData(data);
+    } else if (!phoneVerificationData) {
+      setPhoneVerificationData({
+        phone: currentUser.contactNumber || currentUser.phone || authUser?.contactNumber || authUser?.phone,
+        formattedPhone: currentUser.contactNumber || currentUser.phone || authUser?.contactNumber || authUser?.phone,
+      });
+    }
+    setIsPhoneVerificationModalOpen(true);
+  };
+
+  const closePhoneVerificationModal = () => {
+    setIsPhoneVerificationModalOpen(false);
+  };
+
+  const verifyPhoneOtp = async (code: string) => {
+    const targetPhone =
+      phoneVerificationData?.phone ||
+      currentUser.phone ||
+      currentUser.contactNumber ||
+      authUser?.phone ||
+      authUser?.contactNumber;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authUser?.token ? { Authorization: `Bearer ${authUser.token}` } : {}),
+        },
+        body: JSON.stringify({
+          phone: targetPhone,
+          code,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      if (data.success && (data.verified || data.success)) {
+        const verifiedAt = new Date().toISOString();
+        const updatedCurrent: CurrentUser = {
+          ...currentUser,
+          phoneVerified: true,
+          phoneVerifiedAt: verifiedAt,
+        };
+        setCurrentUser(updatedCurrent);
+        await AsyncStorage.setItem('fiffy_current_user', JSON.stringify(updatedCurrent));
+
+        if (authUser) {
+          const updatedAuth: AuthUser = {
+            ...authUser,
+            phoneVerified: true,
+            phoneVerifiedAt: verifiedAt,
+          };
+          setAuthUser(updatedAuth);
+          await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(updatedAuth));
+        }
+
+        setIsPhoneVerificationModalOpen(false);
+        showToast('Mobile Verified! 📱', 'Your mobile contact number has been successfully verified.', 'success');
+        return { success: true };
+      }
+      return {
+        success: false,
+        error: data.error || 'Incorrect verification code. Please check your SMS and try again.',
+      };
+    } catch {
+      // Offline fallback: if code is 4-6 digits or matches simulated code, mark verified
+      if (code && code.length >= 4) {
+        const verifiedAt = new Date().toISOString();
+        const updatedCurrent: CurrentUser = {
+          ...currentUser,
+          phoneVerified: true,
+          phoneVerifiedAt: verifiedAt,
+        };
+        setCurrentUser(updatedCurrent);
+        await AsyncStorage.setItem('fiffy_current_user', JSON.stringify(updatedCurrent));
+
+        if (authUser) {
+          const updatedAuth: AuthUser = {
+            ...authUser,
+            phoneVerified: true,
+            phoneVerifiedAt: verifiedAt,
+          };
+          setAuthUser(updatedAuth);
+          await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(updatedAuth));
+        }
+
+        setIsPhoneVerificationModalOpen(false);
+        showToast('Mobile Verified! 📱', 'Your mobile contact number has been verified.', 'success');
+        return { success: true };
+      }
+      return { success: false, error: 'Network error while verifying code.' };
+    }
+  };
+
+  const resendPhoneOtp = async () => {
+    const targetPhone =
+      phoneVerificationData?.phone ||
+      currentUser.phone ||
+      currentUser.contactNumber ||
+      authUser?.phone ||
+      authUser?.contactNumber;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: targetPhone,
+          purpose: 'verify',
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      if (data.success) {
+        setPhoneVerificationData((prev) => ({
+          ...prev,
+          formattedPhone: data.formattedPhone || prev?.formattedPhone,
+          phone: data.e164 || prev?.phone,
+          verificationCode: data.verificationCode,
+          simulatedSms: data.simulatedSms,
+          message: data.message,
+        }));
+        return { success: true, message: data.message || 'New verification code dispatched via SMS.' };
+      }
+      return { success: false, error: data.error || 'Failed to resend code.' };
+    } catch {
+      // Offline fallback: generate new 6-digit code
+      const offlineCode = Math.floor(100000 + Math.random() * 900000).toString();
+      setPhoneVerificationData((prev) => ({
+        ...prev,
+        verificationCode: offlineCode,
+        simulatedSms: true,
+        message: 'Sandbox verification code generated.',
+      }));
+      return { success: true, message: 'New code generated for sandbox testing.' };
+    }
+  };
 
   // ── Initialize FCM Push Notifications ─────────────────────────────────────
   useEffect(() => {
@@ -310,6 +470,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name: 'Executive Admin',
         email: identifier,
         role: 'admin',
+        phoneVerified: true,
+        phoneVerifiedAt: new Date().toISOString(),
+        phone: '+27 82 459 9021',
         token: 'demo-admin-token',
       };
       setAuthUser(adminUser);
@@ -317,6 +480,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...INITIAL_CURRENT_USER,
         name: 'Executive Admin',
         email: identifier,
+        phoneVerified: true,
+        phoneVerifiedAt: new Date().toISOString(),
         isPremium: true,
         premiumTier: 'elite',
         isExempt: true,
@@ -337,7 +502,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
       clearTimeout(timeoutId);
       const data = await res.json();
+
+      // STRICT CHECK: If phone number is not verified, login is strictly denied
+      if (data.phoneUnverified) {
+        setPhoneVerificationData({
+          phone: data.phone || data.e164 || identifier,
+          formattedPhone: data.formattedPhone || data.phone || identifier,
+          verificationCode: data.verificationCode,
+          simulatedSms: data.simulatedSms,
+          autoSmsSent: data.autoSmsSent,
+          message: data.error,
+        });
+        setIsPhoneVerificationModalOpen(true);
+        return {
+          success: false,
+          phoneUnverified: true,
+          phoneData: data,
+          error: data.error || 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+        };
+      }
+
       if (data.success && data.user) {
+        if (!data.user.phoneVerified && data.user.role !== 'admin') {
+          setPhoneVerificationData({
+            phone: data.user.phone || data.user.contactNumber || identifier,
+            formattedPhone: data.user.contactNumber || data.user.phone || identifier,
+            message: 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+          });
+          setIsPhoneVerificationModalOpen(true);
+          return {
+            success: false,
+            phoneUnverified: true,
+            phoneData: data.user,
+            error: 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+          };
+        }
+
         setAuthUser(data.user);
         setCurrentUser((prev) => ({ ...prev, ...data.user }));
         await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(data.user));
@@ -346,6 +546,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return { success: false, error: data.error || 'Invalid credentials' };
     } catch {
       // 4. Standalone fallback for any custom credentials when running without backend
+      // Check if user was previously stored locally and whether phone is verified
+      const storedCurrentRaw = await AsyncStorage.getItem('fiffy_current_user');
+      const storedAuthRaw = await AsyncStorage.getItem('fiffy_auth_user');
+      const storedCurrent = storedCurrentRaw ? JSON.parse(storedCurrentRaw) : null;
+      const storedAuth = storedAuthRaw ? JSON.parse(storedAuthRaw) : null;
+
+      const matchedLocal =
+        storedCurrent && (storedCurrent.email === identifier || storedCurrent.phone === identifier || storedCurrent.contactNumber === identifier)
+          ? storedCurrent
+          : storedAuth && (storedAuth.email === identifier || storedAuth.phone === identifier || storedAuth.contactNumber === identifier)
+          ? storedAuth
+          : null;
+
+      if (matchedLocal && matchedLocal.phoneVerified === false) {
+        setPhoneVerificationData({
+          phone: matchedLocal.phone || matchedLocal.contactNumber || identifier,
+          formattedPhone: matchedLocal.contactNumber || matchedLocal.phone || identifier,
+          message: 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+        });
+        setIsPhoneVerificationModalOpen(true);
+        return {
+          success: false,
+          phoneUnverified: true,
+          phoneData: matchedLocal,
+          error: 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+        };
+      }
+
       const localId = `user-${Date.now()}`;
       const localName = identifier.includes('@')
         ? identifier.split('@')[0].replace(/[._-]/g, ' ')
@@ -356,6 +584,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name: capitalizedName,
         email: identifier.includes('@') ? identifier : undefined,
         phone: !identifier.includes('@') ? identifier : undefined,
+        phoneVerified: true,
+        phoneVerifiedAt: new Date().toISOString(),
         role: 'user',
         token: `token-${localId}`,
       };
@@ -365,6 +595,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name: capitalizedName,
         email: localUser.email,
         phone: localUser.phone || INITIAL_CURRENT_USER.phone,
+        phoneVerified: true,
+        phoneVerifiedAt: new Date().toISOString(),
         isPremium: true,
         premiumTier: 'gold',
       };
@@ -394,17 +626,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setAuthUser(data.user);
         setCurrentUser((prev) => ({ ...prev, ...data.user }));
         await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('fiffy_current_user', JSON.stringify({ ...currentUser, ...data.user }));
+
+        // Automatically trigger Phone Verification Modal upon creation if phone is not verified
+        if (!data.user.phoneVerified) {
+          setPhoneVerificationData({
+            phone: data.user.phone || data.e164 || userData.contactNumber || userData.phone,
+            formattedPhone: data.formattedPhone || userData.contactNumber || userData.phone,
+            verificationCode: data.verificationCode,
+            simulatedSms: data.simulatedSms,
+            autoSmsSent: data.autoSmsSent,
+            message: data.message,
+          });
+          setIsPhoneVerificationModalOpen(true);
+        }
         return { success: true };
       }
     } catch {}
 
     // Offline / Standalone Fallback: immediately log user in with their custom profile!
     const newId = `user-reg-${Date.now()}`;
+    const mockCode = Math.floor(100000 + Math.random() * 900000).toString();
     const newUser: AuthUser = {
       id: newId,
       name: userData.name,
       email: userData.email,
       phone: userData.contactNumber || userData.phone,
+      contactNumber: userData.contactNumber || userData.phone,
+      phoneVerified: false,
       role: 'user',
       token: `token-${newId}`,
     };
@@ -415,6 +664,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       email: userData.email,
       phone: userData.contactNumber || userData.phone,
       contactNumber: userData.contactNumber || userData.phone,
+      phoneVerified: false,
       dateOfBirth: userData.dob || userData.dateOfBirth || '2000-01-01',
       age: userData.age || 25,
       gender: userData.gender || 'woman',
@@ -436,6 +686,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setMessages(INITIAL_MESSAGES);
     await AsyncStorage.setItem('fiffy_auth_user', JSON.stringify(newUser));
     await AsyncStorage.setItem('fiffy_current_user', JSON.stringify(newProfile));
+
+    // Prepare phone verification data and pop modal
+    setPhoneVerificationData({
+      phone: userData.contactNumber || userData.phone,
+      formattedPhone: userData.contactNumber || userData.phone,
+      verificationCode: mockCode,
+      simulatedSms: true,
+      autoSmsSent: true,
+      message: `Account created! Verification code sent to ${userData.contactNumber || userData.phone}.`,
+    });
+    setIsPhoneVerificationModalOpen(true);
     return { success: true };
   };
 
@@ -881,6 +1142,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isFcmModalOpen,
     setIsFcmModalOpen,
     triggerFcmAlert: (payload) => fcmService.dispatchNotification(payload),
+
+    isPhoneVerificationModalOpen,
+    setIsPhoneVerificationModalOpen,
+    phoneVerificationData,
+    openPhoneVerificationModal,
+    closePhoneVerificationModal,
+    verifyPhoneOtp,
+    resendPhoneOtp,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

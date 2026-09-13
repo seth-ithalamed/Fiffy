@@ -10,7 +10,9 @@ import { MonetizationModal } from '../../src/components/modals/MonetizationModal
 import { SafetyModal } from '../../src/components/modals/SafetyModal';
 import { PaymentModal } from '../../src/components/modals/PaymentModal';
 import { FCMNotificationModal } from '../../src/components/modals/FCMNotificationModal';
+import { PhoneVerificationModal } from '../../src/components/modals/PhoneVerificationModal';
 import { FCMAlertBanner } from '../../src/components/ui/FCMAlertBanner';
+import { PhoneVerificationBanner } from '../../src/components/ui/PhoneVerificationBanner';
 import { ToastStack } from '../../src/components/ui/Toast';
 
 function TabIcon({ icon, label, focused, badge }: { icon: string; label: string; focused: boolean; badge?: number }) {
@@ -58,6 +60,7 @@ export default function AppLayout() {
 
   return (
     <>
+      <PhoneVerificationBanner />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -107,6 +110,7 @@ export default function AppLayout() {
       <MonetizationModal />
       <SafetyModal />
       <PaymentModal />
+      <PhoneVerificationModal />
       <FCMNotificationModal
         visible={isFcmModalOpen}
         onClose={() => setIsFcmModalOpen(false)}

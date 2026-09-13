@@ -52,6 +52,7 @@ export default function ProfileScreen() {
     authUser,
     showToast,
     setIsFcmModalOpen,
+    openPhoneVerificationModal,
   } = useApp();
   const [selfieOpen, setSelfieOpen] = useState(false);
 
@@ -122,17 +123,31 @@ export default function ProfileScreen() {
               <Text style={styles.title}>Edit Profile</Text>
               <Text style={styles.sub}>Curate your photos, prompts, and privacy</Text>
             </View>
-            {currentUser.verified ? (
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>✓ Verified</Text>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={() => setSelfieOpen(true)} style={styles.verifyBtn}>
-                <LinearGradient colors={gradientPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.verifyGrad}>
-                  <Text style={styles.verifyText}>📷 Verify</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
+            <View style={styles.headerBadgesRow}>
+              {currentUser.verified ? (
+                <View style={styles.verifiedBadge}>
+                  <Text style={styles.verifiedText}>✓ Verified</Text>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setSelfieOpen(true)} style={styles.verifyBtn}>
+                  <LinearGradient colors={gradientPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.verifyGrad}>
+                    <Text style={styles.verifyText}>📷 Selfie</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
+              {currentUser.phoneVerified ? (
+                <View style={styles.phoneHeaderBadge}>
+                  <Text style={styles.phoneHeaderBadgeText}>📱 SMS Verified</Text>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => openPhoneVerificationModal()} style={styles.verifyBtn}>
+                  <LinearGradient colors={gradientPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.verifyGrad}>
+                    <Text style={styles.verifyText}>📱 SMS OTP</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Completeness */}
@@ -416,6 +431,38 @@ export default function ProfileScreen() {
           {/* Account & Sign out */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>🛡 Account & Security</Text>
+
+            {/* Mobile Contact Verification */}
+            <View style={[styles.signOutRow, { marginBottom: 14, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }]}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.signOutLabel}>Mobile Number</Text>
+                  {currentUser.phoneVerified ? (
+                    <View style={styles.phoneVerifiedTag}>
+                      <Text style={styles.phoneVerifiedTagText}>✓ SMS Verified</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.phoneUnverifiedTag}>
+                      <Text style={styles.phoneUnverifiedTagText}>⚠️ Unverified</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.signOutSub}>
+                  {currentUser.contactNumber || currentUser.phone || authUser?.contactNumber || authUser?.phone || 'No phone number provided'}
+                </Text>
+              </View>
+              {!currentUser.phoneVerified && (
+                <TouchableOpacity
+                  style={styles.verifyPhoneActionBtn}
+                  onPress={() => openPhoneVerificationModal()}
+                >
+                  <LinearGradient colors={gradientPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.verifyPhoneActionGrad}>
+                    <Text style={styles.verifyPhoneActionText}>Enter SMS Code</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </View>
+
             <View style={styles.signOutRow}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -521,6 +568,67 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(52,211,153,0.35)',
   },
   activeTagText: { color: '#34d399', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  headerBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  phoneHeaderBadge: {
+    backgroundColor: 'rgba(52,211,153,0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.35)',
+  },
+  phoneHeaderBadgeText: {
+    color: '#34d399',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  phoneVerifiedTag: {
+    backgroundColor: 'rgba(52,211,153,0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.35)',
+  },
+  phoneVerifiedTagText: {
+    color: '#34d399',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  phoneUnverifiedTag: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  phoneUnverifiedTagText: {
+    color: '#fbbf24',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  verifyPhoneActionBtn: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  verifyPhoneActionGrad: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyPhoneActionText: {
+    color: Colors.white,
+    fontSize: 11,
+    fontWeight: '800',
+  },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -46,6 +46,10 @@ function getInitialDbState(): DatabaseSchema {
     password: 'admin123',
     role: 'admin',
     verified: true,
+    phoneVerified: true,
+    phoneVerifiedAt: new Date().toISOString(),
+    phone: '+27824599021',
+    contactNumber: '+27 82 459 9021',
     country: 'South Africa',
     countryCode: 'ZA',
     countryFlag: '🇿🇦',
@@ -103,6 +107,10 @@ function loadDb(): DatabaseSchema {
             password: 'admin123',
             role: 'admin',
             verified: true,
+            phoneVerified: true,
+            phoneVerifiedAt: new Date().toISOString(),
+            phone: '+27824599021',
+            contactNumber: '+27 82 459 9021',
             country: 'South Africa',
             countryCode: 'ZA',
             countryFlag: '🇿🇦',
@@ -1334,6 +1342,57 @@ async function startServer() {
     }
   }
 
+  // Helper phone normalization utilities
+  const cleanDigits = (val?: string) => (val || '').replace(/[^0-9]/g, '');
+  const normalizeCorePhone = (val?: string) => {
+    if (!val) return '';
+    let digits = val.replace(/[^0-9]/g, '');
+    // Strip common country dialing codes if longer than standard local format
+    if (digits.startsWith('27') && digits.length >= 11) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith('234') && digits.length >= 12) {
+      digits = digits.slice(3);
+    } else if (digits.startsWith('254') && digits.length >= 11) {
+      digits = digits.slice(3);
+    } else if (digits.startsWith('44') && digits.length >= 12) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith('1') && digits.length >= 11) {
+      digits = digits.slice(1);
+    }
+    while (digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+    return digits;
+  };
+
+  // Helper to dispatch verification SMS via Twilio
+  async function dispatchVerificationSms(norm: { e164: string; formatted: string; digits: string }) {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    activeOtps.set(norm.e164, {
+      code,
+      phone: norm.formatted,
+      e164: norm.e164,
+      expiresAt,
+      attempts: 0,
+      lastSentAt: Date.now(),
+    });
+
+    const twilioResult = await sendTwilioSms({
+      to: norm.e164,
+      body: `Your Fiffy's Match Making verification code is: ${code}. Valid for 5 minutes. Do not share this code with anyone.`,
+    });
+
+    console.log(
+      `[SMS-GATEWAY] 📱 SMS OTP dispatched to ${norm.formatted} (${norm.e164}): CODE = ${code} | Twilio: ${
+        twilioResult.simulated ? 'Simulated' : 'Sent (' + twilioResult.messageSid + ')'
+      }`
+    );
+
+    return { code, expiresAt, twilioResult };
+  }
+
   // 0b. AUTH: Send Phone Verification SMS OTP
   app.post('/api/auth/send-otp', async (req, res) => {
     const { phone, countryCode, purpose = 'signup' } = req.body;
@@ -1365,30 +1424,7 @@ async function startServer() {
       });
     }
 
-    // Generate cryptographic 6-digit numeric verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-
-    activeOtps.set(norm.e164, {
-      code,
-      phone: norm.formatted,
-      e164: norm.e164,
-      expiresAt,
-      attempts: 0,
-      lastSentAt: Date.now(),
-    });
-
-    // Dispatch via Twilio SMS Gateway
-    const twilioResult = await sendTwilioSms({
-      to: norm.e164,
-      body: `Your Fiffy's Match Making verification code is: ${code}. Valid for 5 minutes. Do not share this code with anyone.`,
-    });
-
-    console.log(
-      `[SMS-GATEWAY] 📱 SMS OTP dispatched to ${norm.formatted} (${norm.e164}): CODE = ${code} | Twilio: ${
-        twilioResult.simulated ? 'Simulated' : 'Sent (' + twilioResult.messageSid + ')'
-      }`
-    );
+    const { code, twilioResult } = await dispatchVerificationSms(norm);
 
     res.json({
       success: true,
@@ -1437,7 +1473,7 @@ async function startServer() {
       });
     }
 
-    // Success: Generate verification token valid for 30 minutes to complete registration
+    // Success: Generate verification token valid for 30 minutes
     activeOtps.delete(norm.e164);
     const verificationToken = `vtok_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     verifiedPhoneTokens.set(verificationToken, {
@@ -1445,18 +1481,64 @@ async function startServer() {
       expiresAt: Date.now() + 30 * 60 * 1000,
     });
 
+    // Check if user is already registered and mark their account verified
+    const authHeader = req.headers.authorization;
+    const targetDigits = cleanDigits(norm.e164 || norm.digits);
+    const targetCore = normalizeCorePhone(norm.e164 || norm.digits);
+
+    let registeredUser = db.users.find((u) => {
+      const uPhone = cleanDigits(u.phone);
+      const uContact = cleanDigits(u.contactNumber);
+      const uPhoneCore = normalizeCorePhone(u.phone);
+      const uContactCore = normalizeCorePhone(u.contactNumber);
+
+      const exactMatch =
+        uPhone === targetDigits ||
+        uContact === targetDigits ||
+        u.phone === norm.e164 ||
+        u.contactNumber === norm.formatted;
+
+      const coreMatch =
+        (targetCore.length >= 7 && (uPhoneCore === targetCore || uContactCore === targetCore)) ||
+        (uPhoneCore.length >= 7 && (uPhoneCore.endsWith(targetCore) || targetCore.endsWith(uPhoneCore))) ||
+        (uContactCore.length >= 7 && (uContactCore.endsWith(targetCore) || targetCore.endsWith(uContactCore)));
+
+      return exactMatch || coreMatch;
+    });
+
+    if (!registeredUser && authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      registeredUser = db.users.find((u) => u.activeSessionToken === token || (u as any).token === token);
+    }
+
+    if (registeredUser) {
+      registeredUser.phoneVerified = true;
+      registeredUser.phoneVerifiedAt = new Date().toISOString();
+      registeredUser.contactNumber = norm.formatted;
+      registeredUser.phone = norm.e164;
+      registeredUser.verified = true;
+      registeredUser.verificationStatus = 'verified';
+      saveDb(db);
+      if (supabaseClient) {
+        persistToSupabase(db).catch(console.error);
+      }
+    }
+
+    const safeUser = registeredUser ? (({ password: _, ...u }) => u)(registeredUser) : undefined;
+
     res.json({
       success: true,
       verified: true,
       verificationToken,
       formattedPhone: norm.formatted,
       e164: norm.e164,
+      user: safeUser,
       message: 'Contact number verified successfully!',
     });
   });
 
   // 1. AUTH: Sign Up
-  app.post('/api/auth/signup', (req, res) => {
+  app.post('/api/auth/signup', async (req, res) => {
     const {
       name,
       contactNumber,
@@ -1617,44 +1699,43 @@ async function startServer() {
       });
     }
 
+    // Automatically send verification SMS upon creation if user is not already phone-verified
+    let autoSmsData: any = null;
+    if (!newUser.phoneVerified) {
+      try {
+        const smsResult = await dispatchVerificationSms(normPhone);
+        autoSmsData = {
+          autoSmsSent: true,
+          formattedPhone: normPhone.formatted,
+          e164: normPhone.e164,
+          verificationCode: smsResult.twilioResult.simulated ? smsResult.code : undefined,
+          simulatedSms: smsResult.twilioResult.simulated,
+        };
+      } catch (smsErr) {
+        console.error('[SMS-GATEWAY] Auto SMS on creation error:', smsErr);
+      }
+    }
+
     const { password: _, ...userSafe } = newUser;
     res.status(201).json({
       success: true,
       user: userSafe,
       token: sessionToken,
       sessionToken,
+      ...(autoSmsData || { autoSmsSent: false }),
+      message: autoSmsData
+        ? `Account created! An SMS verification code has been sent to ${normPhone.formatted}.`
+        : 'Account created successfully!',
     });
   });
 
-  // 2. AUTH: Login (Supports Contact Number or Email) - Enforces Single Active Session
-  app.post('/api/auth/login', (req, res) => {
+  // 2. AUTH: Login (Supports Contact Number or Email) - Enforces Single Active Session & Verified Phone
+  app.post('/api/auth/login', async (req, res) => {
     const { identifier, email, phone, contactNumber, password } = req.body;
     const loginId = (identifier || email || phone || contactNumber || '').trim().toLowerCase();
     if (!loginId || !password) {
       return res.status(400).json({ error: 'Contact number/email and password are required' });
     }
-
-    const cleanDigits = (val?: string) => (val || '').replace(/[^0-9]/g, '');
-    const normalizeCorePhone = (val?: string) => {
-      if (!val) return '';
-      let digits = val.replace(/[^0-9]/g, '');
-      // Strip common country dialing codes if longer than standard local format
-      if (digits.startsWith('27') && digits.length >= 11) {
-        digits = digits.slice(2);
-      } else if (digits.startsWith('234') && digits.length >= 12) {
-        digits = digits.slice(3);
-      } else if (digits.startsWith('254') && digits.length >= 11) {
-        digits = digits.slice(3);
-      } else if (digits.startsWith('44') && digits.length >= 12) {
-        digits = digits.slice(2);
-      } else if (digits.startsWith('1') && digits.length >= 11) {
-        digits = digits.slice(1);
-      }
-      while (digits.startsWith('0')) {
-        digits = digits.slice(1);
-      }
-      return digits;
-    };
 
     const loginDigits = cleanDigits(loginId);
     const loginCore = normalizeCorePhone(loginId);
@@ -1688,6 +1769,38 @@ async function startServer() {
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid contact number/email or password' });
+    }
+
+    // STRICT REQUIREMENT: If phone number is not verified, the user cannot login at all!
+    if (!user.phoneVerified && user.role !== 'admin') {
+      let autoSmsData: any = null;
+      try {
+        const rawUserPhone = user.phone || user.contactNumber;
+        if (rawUserPhone) {
+          const norm = normalizePhoneNumber(rawUserPhone, user.countryCode || 'ZA');
+          if (norm.isValid) {
+            const smsResult = await dispatchVerificationSms(norm);
+            autoSmsData = {
+              autoSmsSent: true,
+              formattedPhone: norm.formatted,
+              e164: norm.e164,
+              verificationCode: smsResult.twilioResult.simulated ? smsResult.code : undefined,
+              simulatedSms: smsResult.twilioResult.simulated,
+            };
+          }
+        }
+      } catch (smsErr) {
+        console.error('[SMS-GATEWAY] Auto-SMS on login blocked error:', smsErr);
+      }
+
+      return res.status(403).json({
+        error: 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+        phoneUnverified: true,
+        phone: user.contactNumber || user.phone,
+        e164: user.phone,
+        formattedPhone: user.contactNumber || user.phone,
+        ...(autoSmsData || {}),
+      });
     }
 
     // Single Active Session: Generate a brand new unique session token.

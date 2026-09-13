@@ -19,6 +19,7 @@ import { useApp } from '../context/AppContext';
 import { AFRICAN_COUNTRIES } from '../data/mockData';
 import { Colors, gradientPink, gradientDark } from '../components/ui/Colors';
 import { GradientButton } from '../components/ui/GradientButton';
+import { PhoneVerificationModal } from '../components/modals/PhoneVerificationModal';
 
 const calculateAge = (dob: string): number => {
   if (!dob) return 0;
@@ -33,7 +34,7 @@ const calculateAge = (dob: string): number => {
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { loginUser, signupUser, showToast, isLoggedIn } = useApp();
+  const { loginUser, signupUser, showToast, isLoggedIn, openPhoneVerificationModal } = useApp();
   const [tab, setTab] = useState<'login' | 'signup'>('login');
 
   // If already logged in, immediately redirect to app deck
@@ -48,6 +49,7 @@ export default function AuthScreen() {
   const [loginPass, setLoginPass] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [loginPhoneUnverified, setLoginPhoneUnverified] = useState(false);
 
   // Signup state
   const [name, setName] = useState('');
@@ -72,11 +74,15 @@ export default function AuthScreen() {
       return;
     }
     setLoginError('');
+    setLoginPhoneUnverified(false);
     setLoginLoading(true);
     const res = await loginUser(loginId.trim(), loginPass);
     setLoginLoading(false);
     if (!res.success) {
       setLoginError(res.error || 'Login failed. Please check your credentials.');
+      if ((res as any).phoneUnverified) {
+        setLoginPhoneUnverified(true);
+      }
     } else {
       showToast('Welcome back!', 'Successfully signed in.', 'success');
       router.replace('/');
@@ -177,7 +183,22 @@ export default function AuthScreen() {
             {/* ── LOGIN FORM ── */}
             {tab === 'login' && (
               <View style={styles.form}>
-                {!!loginError && <View style={styles.errorBox}><Text style={styles.errorText}>{loginError}</Text></View>}
+                {!!loginError && (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{loginError}</Text>
+                    {(loginPhoneUnverified || loginError.toLowerCase().includes('phone')) && (
+                      <TouchableOpacity
+                        style={styles.verifyOtpBtn}
+                        onPress={() => openPhoneVerificationModal()}
+                        activeOpacity={0.8}
+                      >
+                        <LinearGradient colors={gradientPink} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.verifyOtpGrad}>
+                          <Text style={styles.verifyOtpBtnText}>📱 Enter SMS Code to Verify & Login</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
 
                 <Text style={styles.label}>Email or Contact Number</Text>
                 <TextInput
@@ -250,6 +271,9 @@ export default function AuthScreen() {
                     />
                   </View>
                 </View>
+                <Text style={styles.smsHintText}>
+                  📱 An SMS verification code will be sent automatically when your account is created.
+                </Text>
 
                 <Text style={styles.label}>Email (Optional)</Text>
                 <TextInput
@@ -375,6 +399,7 @@ export default function AuthScreen() {
             )}
           </ScrollView>
         </KeyboardAvoidingView>
+        <PhoneVerificationModal />
       </SafeAreaView>
     </LinearGradient>
   );
@@ -382,6 +407,15 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  smsHintText: {
+    color: '#ff77aa',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: -8,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+    fontWeight: '500',
+  },
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   header: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
   logoBox: {
@@ -470,5 +504,21 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
-  errorText: { color: '#fca5a5', fontSize: 12 },
+  errorText: { color: '#fca5a5', fontSize: 12, marginBottom: 8 },
+  verifyOtpBtn: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  verifyOtpGrad: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyOtpBtnText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

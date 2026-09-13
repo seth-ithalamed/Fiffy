@@ -129,6 +129,8 @@ export const INITIAL_CURRENT_USER: CurrentUser = {
   email: 'lerato.khumalo@fiffys.com',
   phone: '+27 82 459 9021',
   contactNumber: '+27 82 459 9021',
+  phoneVerified: true,
+  phoneVerifiedAt: '2026-09-10T12:00:00Z',
   job: 'Brand Strategist & Art Enthusiast',
   company: 'Khumalo Media Group',
   education: 'University of the Witwatersrand',

@@ -13,6 +13,7 @@ import { MonetizationModal } from './components/app/MonetizationModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { PaymentModal } from './components/app/PaymentModal';
 import { VerificationModal } from './components/app/VerificationModal';
+import { PhoneVerificationModal } from './components/auth/PhoneVerificationModal';
 import {
   Flame,
   MessageCircle,
@@ -33,6 +34,7 @@ const MainAppContent: React.FC = () => {
     dismissToast,
     currentUser,
     authUser,
+    openPhoneVerificationModal,
   } = useApp();
 
   const totalUnreadMessages = matches.reduce((acc, m) => acc + (m.unreadCount || 0), 0);
@@ -124,6 +126,29 @@ const MainAppContent: React.FC = () => {
               </div>
             </div>
 
+            {/* Phone Verification Alert Banner */}
+            {authUser && !currentUser.phoneVerified && (
+              <div
+                id="phone-unverified-alert-banner"
+                className="bg-gradient-to-r from-amber-500/15 via-pink-500/20 to-purple-600/20 border-b border-amber-500/30 px-4 py-2.5 flex items-center justify-between gap-3 text-xs shrink-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 animate-ping" />
+                  <span className="text-amber-200 truncate">
+                    📱 SMS verification code sent to <strong className="text-white font-mono">{currentUser.contactNumber || currentUser.phone}</strong>. Verify to secure your account.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  id="banner-verify-phone-btn"
+                  onClick={() => openPhoneVerificationModal()}
+                  className="px-3 py-1 rounded-xl gradient-fiffy text-white font-bold text-[11px] shadow-sm hover:brightness-110 active:scale-95 transition-all shrink-0 cursor-pointer"
+                >
+                  Verify Number
+                </button>
+              </div>
+            )}
+
             {/* Active In-App View */}
             <div className="flex-1 flex flex-col overflow-hidden">
               {inAppTab === 'discover' && <DiscoveryView />}
@@ -142,6 +167,7 @@ const MainAppContent: React.FC = () => {
       <AuthModal />
       <PaymentModal />
       <VerificationModal />
+      <PhoneVerificationModal />
 
       {/* TOAST NOTIFICATIONS STACK */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">

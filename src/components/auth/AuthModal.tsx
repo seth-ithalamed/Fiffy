@@ -44,6 +44,7 @@ export const AuthModal: React.FC = () => {
     loginUser,
     signupUser,
     showToast,
+    openPhoneVerificationModal,
   } = useApp();
 
   // Login form state - supports email or contact number
@@ -51,6 +52,7 @@ export const AuthModal: React.FC = () => {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginPhoneUnverifiedData, setLoginPhoneUnverifiedData] = useState<any>(null);
 
   // Signup form state
   const [signupName, setSignupName] = useState('');
@@ -227,6 +229,9 @@ export const AuthModal: React.FC = () => {
       closeAuthModal();
     } else {
       setLoginError(res.error || 'Invalid credentials or password');
+      if (res.phoneUnverified) {
+        setLoginPhoneUnverifiedData(res.phoneData);
+      }
     }
   };
 
@@ -376,7 +381,27 @@ export const AuthModal: React.FC = () => {
                 className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-300"
               >
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span>{loginError}</span>
+                <div className="flex-1 space-y-2">
+                  <span className="block leading-relaxed">{loginError}</span>
+                  {loginError.toLowerCase().includes('phone') && (
+                    <button
+                      id="login-verify-phone-btn"
+                      type="button"
+                      onClick={() => {
+                        openPhoneVerificationModal(
+                          loginPhoneUnverifiedData || {
+                            phone: loginIdentifier,
+                            formattedPhone: loginIdentifier,
+                          }
+                        );
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold text-xs shadow-md shadow-pink-500/20 transition-all cursor-pointer"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>Enter SMS OTP to Verify Contact Number</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -536,63 +561,39 @@ export const AuthModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Contact Number with Verification & Duplicate Prevention */}
+            {/* Contact Number with Automatic SMS Verification on Creation */}
             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="signup-contact" className="block text-xs font-semibold text-purple-200">
-                  Mobile Contact Number * <span className="text-pink-400 text-[10px] font-normal">(1 account per number)</span>
+                  Mobile Contact Number *
                 </label>
-                {isPhoneVerified ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Verified
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-purple-300/60">
-                    Format: +Country Code or Local (e.g. 082 459 9021)
-                  </span>
-                )}
+                <span className="text-[10px] text-purple-300/60">
+                  Format: +Country Code or Local (e.g. 082 459 9021)
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Phone className="w-4 h-4 absolute left-3.5 top-3 text-purple-400/60" />
-                  <input
-                    id="signup-contact"
-                    type="tel"
-                    required
-                    disabled={isPhoneVerified}
-                    placeholder={`e.g. +27 82 459 9021 or 0824599021`}
-                    value={signupContact}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    onBlur={() => handleCheckPhone(signupContact)}
-                    className={`w-full bg-white/5 border rounded-2xl pl-10 pr-3 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none transition-colors ${
-                      isPhoneVerified
-                        ? 'border-emerald-500/50 bg-emerald-500/5 cursor-not-allowed text-emerald-200'
-                        : phoneStatus?.exists
-                        ? 'border-red-500 focus:border-red-500'
-                        : 'border-white/10 focus:border-pink-500'
-                    }`}
-                  />
-                </div>
-
-                {!isPhoneVerified && (
-                  <button
-                    type="button"
-                    id="signup-send-otp-btn"
-                    onClick={handleSendOtp}
-                    disabled={otpSending || !signupContact.trim()}
-                    className="px-3.5 py-2.5 rounded-2xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 disabled:opacity-40"
-                  >
-                    {otpSending ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Smartphone className="w-3.5 h-3.5 text-pink-400" />
-                    )}
-                    <span>{otpStepOpen ? 'Resend SMS' : 'Verify SMS'}</span>
-                  </button>
-                )}
+              <div className="relative w-full">
+                <Phone className="w-4 h-4 absolute left-3.5 top-3 text-purple-400/60" />
+                <input
+                  id="signup-contact"
+                  type="tel"
+                  required
+                  placeholder={`e.g. +27 82 459 9021 or 0824599021`}
+                  value={signupContact}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onBlur={() => handleCheckPhone(signupContact)}
+                  className={`w-full bg-white/5 border rounded-2xl pl-10 pr-3 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none transition-colors ${
+                    phoneStatus?.exists
+                      ? 'border-red-500 focus:border-red-500'
+                      : 'border-white/10 focus:border-pink-500'
+                  }`}
+                />
               </div>
+
+              <p className="text-[11px] text-purple-300/70 flex items-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                <span>An SMS verification code will be sent automatically when your account is created.</span>
+              </p>
 
               {/* Duplicate check warning */}
               {phoneStatus?.exists && (
@@ -611,79 +612,6 @@ export const AuthModal: React.FC = () => {
                     className="font-bold text-pink-400 underline underline-offset-2 hover:text-pink-300 ml-2"
                   >
                     Sign In
-                  </button>
-                </div>
-              )}
-
-              {/* OTP Entry Box */}
-              {otpStepOpen && !isPhoneVerified && (
-                <div className="p-3 rounded-xl bg-purple-950/60 border border-pink-500/30 space-y-2 mt-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-pink-300 flex items-center gap-1.5">
-                      <KeyRound className="w-3.5 h-3.5" /> Enter 6-digit SMS verification code
-                    </span>
-                    <span className="text-[10px] text-purple-300/70">Valid for 5 mins</span>
-                  </div>
-
-                  {otpSentNotice && (
-                    <p className="text-[11px] text-purple-200/90 leading-tight">
-                      {otpSentNotice}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="signup-otp-input"
-                      type="text"
-                      maxLength={6}
-                      placeholder="e.g. 123456"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      className="w-36 bg-black/40 border border-pink-500/40 rounded-xl px-3 py-2 text-center text-sm tracking-widest font-mono text-white focus:outline-none focus:border-pink-400"
-                    />
-                    <button
-                      type="button"
-                      id="signup-verify-otp-btn"
-                      onClick={handleVerifyOtp}
-                      disabled={otpVerifying || otpCode.length < 4}
-                      className="flex-1 py-2 px-3 rounded-xl gradient-fiffy text-white font-bold text-xs shadow-md shadow-pink-500/20 hover:brightness-110 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
-                    >
-                      {otpVerifying ? (
-                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Confirm & Verify</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {otpError && (
-                    <p className="text-[11px] text-red-300 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3 text-red-400 shrink-0" /> {otpError}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Verified Badge */}
-              {isPhoneVerified && (
-                <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    Number verified: <strong className="font-semibold text-white">{verifiedPhoneFormatted}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsPhoneVerified(false);
-                      setVerificationToken(null);
-                      setOtpStepOpen(false);
-                    }}
-                    className="text-[11px] text-purple-300/80 hover:text-white underline ml-2"
-                  >
-                    Change Number
                   </button>
                 </div>
               )}

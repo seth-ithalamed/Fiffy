@@ -88,6 +88,8 @@ export interface UserProfile {
   dateOfBirth?: string;
   phone?: string;
   contactNumber?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string | null;
   isExempt?: boolean;
 }
 
@@ -95,6 +97,8 @@ export interface CurrentUser extends UserProfile {
   email?: string;
   phone: string;
   contactNumber?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string | null;
   dateOfBirth?: string;
   isPremium: boolean;
   premiumTier: 'free' | 'plus' | 'gold' | 'elite';
@@ -168,11 +172,22 @@ export interface AuthUser {
   email?: string;
   phone?: string;
   contactNumber?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string | null;
   name: string;
   role: 'user' | 'admin';
   token: string;
   avatarUrl?: string;
   country?: string;
+}
+
+export interface PhoneVerificationData {
+  phone?: string;
+  formattedPhone?: string;
+  verificationCode?: string;
+  simulatedSms?: boolean;
+  autoSmsSent?: boolean;
+  message?: string;
 }
 
 // ─── Firebase Cloud Messaging (FCM) Types ─────────────────────────────────────

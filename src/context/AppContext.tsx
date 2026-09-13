@@ -82,7 +82,7 @@ interface AppContextType {
   openAuthModal: (tab?: 'login' | 'signup') => void;
   closeAuthModal: () => void;
   setAuthModalTab: (tab: 'login' | 'signup') => void;
-  loginUser: (identifier: string, pass: string) => Promise<{ success: boolean; user?: any; error?: string }>;
+  loginUser: (identifier: string, pass: string) => Promise<{ success: boolean; user?: any; error?: string; phoneUnverified?: boolean; phoneData?: any }>;
   signupUser: (userData: any) => Promise<{ success: boolean; user?: any; error?: string }>;
   logoutUser: () => void;
 
@@ -136,6 +136,22 @@ interface AppContextType {
   // Identity Verification
   isVerificationModalOpen: boolean;
   setIsVerificationModalOpen: (open: boolean) => void;
+
+  // Phone SMS OTP Verification
+  isPhoneVerificationModalOpen: boolean;
+  setIsPhoneVerificationModalOpen: (open: boolean) => void;
+  phoneVerificationData: {
+    phone?: string;
+    formattedPhone?: string;
+    verificationCode?: string;
+    simulatedSms?: boolean;
+    autoSmsSent?: boolean;
+    message?: string;
+  } | null;
+  openPhoneVerificationModal: (data?: any) => void;
+  closePhoneVerificationModal: () => void;
+  verifyPhoneOtp: (code: string) => Promise<{ success: boolean; error?: string }>;
+  resendPhoneOtp: () => Promise<{ success: boolean; error?: string; message?: string }>;
 
   // Safety Modal
   isSafetyModalOpen: boolean;
@@ -287,6 +303,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     previousMatch: Match;
   } | null>(null);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState<boolean>(false);
+  const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState<boolean>(false);
+  const [phoneVerificationData, setPhoneVerificationData] = useState<{
+    phone?: string;
+    formattedPhone?: string;
+    verificationCode?: string;
+    simulatedSms?: boolean;
+    autoSmsSent?: boolean;
+    message?: string;
+  } | null>(null);
 
   // Subscriptions & PayFast
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(DEFAULT_SUBSCRIPTION_PLANS);
@@ -566,7 +591,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }),
       });
       const parsed = await safeFetchJson(res);
+      if (parsed.data?.phoneUnverified) {
+        openPhoneVerificationModal({
+          phone: parsed.data.phone || parsed.data.e164 || identifier,
+          formattedPhone: parsed.data.formattedPhone || parsed.data.phone || identifier,
+          verificationCode: parsed.data.verificationCode,
+          simulatedSms: parsed.data.simulatedSms,
+          autoSmsSent: parsed.data.autoSmsSent,
+          message: parsed.data.error,
+        });
+        return {
+          success: false,
+          phoneUnverified: true,
+          phoneData: parsed.data,
+          error: parsed.data?.error || 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+        };
+      }
+
       if (parsed.success && parsed.data?.user) {
+        if (!parsed.data.user.phoneVerified && parsed.data.user.role !== 'admin') {
+          openPhoneVerificationModal({
+            phone: parsed.data.user.phone || parsed.data.user.contactNumber,
+            formattedPhone: parsed.data.user.contactNumber || parsed.data.user.phone,
+            message: 'Your phone number is not verified. Please verify your phone number via SMS OTP to log in.',
+          });
+          return {
+            success: false,
+            phoneUnverified: true,
+            phoneData: parsed.data.user,
+            error: 'Phone number not verified. You cannot log in until your phone number is verified via SMS.',
+          };
+        }
+
         const sessionToken = parsed.data.sessionToken || parsed.data.token || parsed.data.user.id;
         const completeUser = {
           ...parsed.data.user,
@@ -634,6 +690,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setInAppTab('discover');
         closeAuthModal();
         refreshActiveSinglesStats();
+
+        // If phone requires verification and auto-SMS was sent, open Phone Verification Modal
+        if (!completeUser.phoneVerified) {
+          setPhoneVerificationData({
+            phone: completeUser.phone || parsed.data.e164 || completeUser.contactNumber,
+            formattedPhone: parsed.data.formattedPhone || completeUser.contactNumber || completeUser.phone,
+            verificationCode: parsed.data.verificationCode,
+            simulatedSms: parsed.data.simulatedSms,
+            autoSmsSent: parsed.data.autoSmsSent,
+            message: parsed.data.message,
+          });
+          setIsPhoneVerificationModalOpen(true);
+        }
+
         return { success: true, user: completeUser };
       }
 
@@ -646,6 +716,102 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         success: false,
         error: 'Registration request failed. Unable to reach backend database.',
       };
+    }
+  };
+
+  const openPhoneVerificationModal = (data?: any) => {
+    if (data) {
+      setPhoneVerificationData((prev) => ({ ...prev, ...data }));
+    }
+    setIsPhoneVerificationModalOpen(true);
+  };
+
+  const closePhoneVerificationModal = () => {
+    setIsPhoneVerificationModalOpen(false);
+  };
+
+  const verifyPhoneOtp = async (code: string) => {
+    try {
+      const phoneToVerify =
+        phoneVerificationData?.phone ||
+        currentUser.phone ||
+        currentUser.contactNumber ||
+        authUser?.phone ||
+        authUser?.contactNumber;
+
+      const res = await fetchApi('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authUser?.token ? { Authorization: `Bearer ${authUser.token}` } : {}),
+        },
+        body: JSON.stringify({
+          phone: phoneToVerify,
+          code,
+        }),
+      });
+      const data = await safeFetchJson(res);
+      if (data.success && (data.data?.verified || data.data?.success)) {
+        setCurrentUser((prev) => ({
+          ...prev,
+          phoneVerified: true,
+          phoneVerifiedAt: new Date().toISOString(),
+        }));
+        if (authUser) {
+          const updatedAuth = {
+            ...authUser,
+            phoneVerified: true,
+            phoneVerifiedAt: new Date().toISOString(),
+          };
+          setAuthUser(updatedAuth);
+          localStorage.setItem('fiffy_auth_user', JSON.stringify(updatedAuth));
+        }
+        setIsPhoneVerificationModalOpen(false);
+        showToast('Phone Verified! 📱', 'Your mobile contact number has been successfully verified.', 'success');
+        return { success: true };
+      }
+      return {
+        success: false,
+        error: data.data?.error || 'Incorrect verification code. Please check your SMS and try again.',
+      };
+    } catch {
+      return { success: false, error: 'Network error while verifying code.' };
+    }
+  };
+
+  const resendPhoneOtp = async () => {
+    try {
+      const phoneToResend =
+        phoneVerificationData?.phone ||
+        currentUser.phone ||
+        currentUser.contactNumber ||
+        authUser?.phone ||
+        authUser?.contactNumber;
+
+      const res = await fetchApi('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phoneToResend,
+          purpose: 'verify',
+        }),
+      });
+      const data = await safeFetchJson(res);
+      if (data.success && data.data?.success) {
+        setPhoneVerificationData((prev) => ({
+          ...prev,
+          formattedPhone: data.data.formattedPhone,
+          phone: data.data.e164 || prev?.phone,
+          verificationCode: data.data.verificationCode,
+          simulatedSms: data.data.simulatedSms,
+          message: data.data.message,
+        }));
+        showToast('SMS Sent', data.data.message || 'A new verification code was sent via SMS.', 'info');
+        return { success: true, message: data.data.message };
+      }
+      return { success: false, error: data.data?.error || 'Failed to resend SMS.' };
+    } catch {
+      return { success: false, error: 'Network error while sending SMS.' };
     }
   };
 
@@ -1647,6 +1813,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cancelChatSwitch,
         isVerificationModalOpen,
         setIsVerificationModalOpen,
+        isPhoneVerificationModalOpen,
+        setIsPhoneVerificationModalOpen,
+        phoneVerificationData,
+        openPhoneVerificationModal,
+        closePhoneVerificationModal,
+        verifyPhoneOtp,
+        resendPhoneOtp,
         isSafetyModalOpen,
         setSafetyModalOpen,
         adminSettings,
