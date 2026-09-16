@@ -6,6 +6,7 @@ import { DiscoveryView } from './components/app/DiscoveryView';
 import { ChatView } from './components/app/ChatView';
 import { ProfileEditor } from './components/app/ProfileEditor';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { TenantPortal } from './components/tenant/TenantPortal';
 import { ProfileDetailModal } from './components/app/ProfileDetailModal';
 import { MatchCelebrationModal } from './components/app/MatchCelebrationModal';
 import { SafetyPanicModal } from './components/app/SafetyPanicModal';
@@ -14,6 +15,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { PaymentModal } from './components/app/PaymentModal';
 import { VerificationModal } from './components/app/VerificationModal';
 import { PhoneVerificationModal } from './components/auth/PhoneVerificationModal';
+import { ForcePasswordChangeModal } from './components/auth/ForcePasswordChangeModal';
 import {
   Flame,
   MessageCircle,
@@ -49,6 +51,8 @@ const MainAppContent: React.FC = () => {
         {activeSurface === 'marketing' && <MarketingLanding />}
 
         {activeSurface === 'admin' && <AdminDashboard />}
+
+        {activeSurface === 'tenant-portal' && <TenantPortal />}
 
         {activeSurface === 'web-app' && (
           <div className="flex-1 flex flex-col h-[calc(100vh-60px)]">
@@ -168,6 +172,7 @@ const MainAppContent: React.FC = () => {
       <PaymentModal />
       <VerificationModal />
       <PhoneVerificationModal />
+      <ForcePasswordChangeModal />
 
       {/* TOAST NOTIFICATIONS STACK */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">

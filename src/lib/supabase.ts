@@ -467,4 +467,92 @@ ON CONFLICT (id) DO UPDATE SET
   role = EXCLUDED.role,
   department = EXCLUDED.department,
   password = EXCLUDED.password;
+
+-- =========================================================================
+-- 22. MULTI-TENANT MATCHMAKING ARCHITECTURE (SEPARATION OF CONCERNS)
+-- Dedicated tables for Matchmaker Tenants, Client Rosters, Billing & Introductions
+-- =========================================================================
+
+-- Add tenant & password-change columns to profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_tenant_client BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS client_pool_access TEXT DEFAULT 'open';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS first_login_completed BOOLEAN DEFAULT TRUE;
+
+-- A. TENANTS TABLE (Matchmaking Agencies / Businesses)
+CREATE TABLE IF NOT EXISTS public.tenants (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  contact_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+  billing_model TEXT DEFAULT 'per_client_upload' CHECK (billing_model IN ('per_client_upload', 'monthly_fixed', 'hybrid')),
+  fee_per_client NUMERIC(10,2) DEFAULT 250.00,
+  currency TEXT DEFAULT 'ZAR' CHECK (currency IN ('ZAR', 'USD')),
+  default_client_pool_access TEXT DEFAULT 'restricted' CHECK (default_client_pool_access IN ('restricted', 'open')),
+  balance_owed NUMERIC(10,2) DEFAULT 0.00,
+  total_clients_uploaded INTEGER DEFAULT 0,
+  notes TEXT,
+  logo_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- B. TENANT_CLIENTS TABLE (Links tenant to uploaded VIP single with confidentiality & pool rules)
+CREATE TABLE IF NOT EXISTS public.tenant_clients (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  client_pool_access TEXT DEFAULT 'restricted' CHECK (client_pool_access IN ('restricted', 'open')),
+  vip_tier TEXT DEFAULT 'executive_vip',
+  matchmaker_notes TEXT,
+  upload_fee_charged NUMERIC(10,2) DEFAULT 250.00,
+  billing_status TEXT DEFAULT 'pending' CHECK (billing_status IN ('pending', 'billed', 'paid')),
+  sms_invite_sent BOOLEAN DEFAULT TRUE,
+  sms_invite_sent_at TIMESTAMPTZ DEFAULT NOW(),
+  temp_password TEXT,
+  first_login_completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- C. TENANT_BILLING_RECORDS TABLE (Per-upload invoices & billing ledger)
+CREATE TABLE IF NOT EXISTS public.tenant_billing_records (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  client_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
+  client_name TEXT,
+  client_phone TEXT,
+  amount NUMERIC(10,2) NOT NULL,
+  currency TEXT DEFAULT 'ZAR',
+  fee_type TEXT DEFAULT 'client_upload',
+  description TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'waived')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  paid_at TIMESTAMPTZ
+);
+
+-- D. TENANT_MATCH_INTRODUCTIONS TABLE (Curated matchmaker introductions)
+CREATE TABLE IF NOT EXISTS public.tenant_match_introductions (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  client_a_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  client_b_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  matchmaker_note TEXT,
+  status TEXT DEFAULT 'curated' CHECK (status IN ('curated', 'accepted', 'declined', 'scheduled_date')),
+  introduced_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed Initial Matchmaking Tenants
+INSERT INTO public.tenants (id, name, slug, contact_name, contact_email, contact_phone, status, billing_model, fee_per_client, currency, default_client_pool_access, balance_owed, total_clients_uploaded, notes)
+VALUES
+  ('tenant-afro-elegance', 'AfroElegance Matchmaking Agency', 'afro-elegance', 'Sipho Zulu & Lerato Dlamini', 'agency@afroelegance.co.za', '+27 82 890 1234', 'active', 'per_client_upload', 250.00, 'ZAR', 'restricted', 500.00, 2, 'Premier southern African elite matchmaking agency with high-net-worth clients.'),
+  ('tenant-diaspora-elite', 'Diaspora Elite Connections', 'diaspora-elite', 'Chidinma & Adebayo Eze', 'connect@diasporaelite.com', '+44 77 9876 5432', 'active', 'per_client_upload', 25.00, 'USD', 'open', 50.00, 2, 'Connecting high-achieving African diaspora singles in London, New York, and Toronto.')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  fee_per_client = EXCLUDED.fee_per_client,
+  balance_owed = EXCLUDED.balance_owed,
+  total_clients_uploaded = EXCLUDED.total_clients_uploaded;
 `;

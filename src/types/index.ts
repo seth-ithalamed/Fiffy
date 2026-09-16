@@ -69,6 +69,12 @@ export interface UserProfile {
   phone?: string;
   contactNumber?: string;
   isExempt?: boolean; // Admin VIP Exception
+  tenantId?: string; // Links single to matchmaking agency / tenant
+  tenantName?: string;
+  isTenantClient?: boolean;
+  clientPoolAccess?: 'restricted' | 'open'; // restricted = only agency clients, open = platform + agency
+  mustChangePassword?: boolean;
+  firstLoginCompleted?: boolean;
 }
 
 export interface CurrentUser extends UserProfile {
@@ -82,6 +88,12 @@ export interface CurrentUser extends UserProfile {
   isPremium: boolean;
   premiumTier: 'free' | 'plus' | 'gold' | 'elite';
   isExempt?: boolean; // Admin VIP Exception
+  tenantId?: string;
+  tenantName?: string;
+  isTenantClient?: boolean;
+  clientPoolAccess?: 'restricted' | 'open';
+  mustChangePassword?: boolean;
+  firstLoginCompleted?: boolean;
   dailySwipesUsed?: number;
   boostsRemaining: number;
   superLikesRemaining: number;
@@ -242,13 +254,103 @@ export interface AuthUser {
   phoneVerified?: boolean;
   activeSessionToken?: string;
   name: string;
-  role: 'user' | 'admin' | 'manager';
+  role: 'user' | 'admin' | 'manager' | 'tenant';
   token: string;
   avatarUrl?: string;
   country?: string;
   isDemo?: boolean;
   isPremium?: boolean;
   premiumTier?: string;
+  tenantId?: string;
+  tenantName?: string;
+  isTenantClient?: boolean;
+  clientPoolAccess?: 'restricted' | 'open';
+  mustChangePassword?: boolean;
+  firstLoginCompleted?: boolean;
+}
+
+export type TenantStatus = 'active' | 'suspended';
+export type TenantBillingModel = 'per_client_upload' | 'monthly_fixed' | 'hybrid';
+export type ClientPoolAccess = 'restricted' | 'open';
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  status: TenantStatus;
+  billingModel: TenantBillingModel;
+  feePerClient: number; // e.g. 250 in ZAR or 15 in USD
+  currency: 'ZAR' | 'USD';
+  defaultClientPoolAccess: ClientPoolAccess;
+  balanceOwed: number;
+  totalClientsUploaded: number;
+  notes?: string;
+  logoUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface TenantClient {
+  id: string;
+  tenantId: string;
+  tenantName?: string;
+  userId: string;
+  user?: UserProfile;
+  name: string;
+  phone: string;
+  email?: string;
+  gender: 'woman' | 'man' | 'non-binary';
+  age: number;
+  city: string;
+  country: string;
+  clientPoolAccess: ClientPoolAccess;
+  vipTier: 'standard_vip' | 'executive_vip' | 'presidential_vip';
+  matchmakerNotes?: string;
+  uploadFeeCharged: number;
+  billingStatus: 'pending' | 'billed' | 'paid';
+  isSavedFully?: boolean;
+  enrollmentStatus?: 'awaiting_payment' | 'active';
+  paidAt?: string | null;
+  paymentMethod?: string;
+  paymentReference?: string;
+  stagedUserData?: any;
+  smsInviteSent: boolean;
+  smsInviteSentAt?: string;
+  tempPassword?: string;
+  firstLoginCompleted: boolean;
+  createdAt: string;
+}
+
+export interface TenantBillingRecord {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string;
+  amount: number;
+  currency: string;
+  feeType: 'client_upload' | 'monthly_retainer' | 'custom';
+  description: string;
+  status: 'pending' | 'paid' | 'waived';
+  createdAt: string;
+  paidAt?: string | null;
+}
+
+export interface TenantMatchIntroduction {
+  id: string;
+  tenantId: string;
+  tenantName?: string;
+  clientAId: string;
+  clientAName: string;
+  clientBId: string;
+  clientBName: string;
+  matchmakerNote: string;
+  status: 'curated' | 'accepted' | 'declined' | 'scheduled_date';
+  introducedAt: string;
 }
 
 export type PlatformManagerRole = 'co_admin' | 'moderator' | 'content_manager' | 'support_vip';

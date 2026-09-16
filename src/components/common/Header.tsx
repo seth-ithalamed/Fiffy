@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  Building2,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -26,6 +27,7 @@ export const Header: React.FC = () => {
     openAuthModal,
     logoutUser,
     adminSession,
+    tenantSession,
     setInAppTab,
     isBoostActive,
     boostTimeRemaining,
@@ -57,6 +59,7 @@ export const Header: React.FC = () => {
   const navSurfaces: { id: SurfaceType; label: string; shortLabel: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'marketing' as SurfaceType, label: 'About & Features', shortLabel: 'About', icon: Globe },
     { id: 'web-app' as SurfaceType, label: 'Match Making Deck', shortLabel: 'Sparks Deck', icon: Flame },
+    { id: 'tenant-portal' as SurfaceType, label: 'Agency Portal', shortLabel: 'Agencies', icon: Building2 },
     { id: 'admin' as SurfaceType, label: 'Admin Portal', shortLabel: 'Admin', icon: ShieldCheck },
   ];
 
@@ -129,6 +132,9 @@ export const Header: React.FC = () => {
                 <span className="lg:hidden">{surface.shortLabel}</span>
                 {surface.id === 'admin' && adminSession?.isAuthenticated && (
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+                )}
+                {surface.id === 'tenant-portal' && tenantSession?.isAuthenticated && (
+                  <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse ml-0.5" />
                 )}
               </button>
             );
@@ -353,6 +359,9 @@ export const Header: React.FC = () => {
                       <span>{surface.label}</span>
                       {surface.id === 'admin' && adminSession?.isAuthenticated && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      )}
+                      {surface.id === 'tenant-portal' && tenantSession?.isAuthenticated && (
+                        <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" />
                       )}
                     </div>
                     <ChevronRight className={`w-3.5 h-3.5 opacity-60 ${isActive ? 'text-white' : 'text-purple-400'}`} />

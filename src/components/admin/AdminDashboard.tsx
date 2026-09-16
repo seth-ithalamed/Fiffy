@@ -38,6 +38,7 @@ import {
   Copy,
   ExternalLink,
   HardDrive,
+  Building2,
 } from 'lucide-react';
 import {
   SubscriptionPlan,
@@ -47,6 +48,7 @@ import {
   PlatformManagerRole,
 } from '../../types';
 import { AFRICAN_COUNTRIES } from '../../data/mockData';
+import { MatchmakingTenantsManager } from './MatchmakingTenantsManager';
 
 const calculateAge = (dobString: string): number => {
   if (!dobString) return 0;
@@ -90,6 +92,10 @@ export const AdminDashboard: React.FC = () => {
     addPlatformManager,
     updatePlatformManager,
     deletePlatformManager,
+    tenants,
+    tenantClients,
+    tenantBillingRecords,
+    tenantBillingSummary,
   } = useApp();
 
   // Admin login form states
@@ -98,8 +104,8 @@ export const AdminDashboard: React.FC = () => {
   const [loginError, setLoginError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
-  // Tabs inside admin portal - includes dedicated platform managers tab
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'gateway' | 'users' | 'managers' | 'testimonials' | 'moderation' | 'broadcast' | 'database'>('users');
+  // Tabs inside admin portal - includes dedicated matchmaking tenants and platform managers tabs
+  const [activeTab, setActiveTab] = useState<'subscriptions' | 'gateway' | 'users' | 'tenants' | 'managers' | 'testimonials' | 'moderation' | 'broadcast' | 'database'>('tenants');
 
   // Platform Manager create modal state
   const [isAddManagerModalOpen, setIsAddManagerModalOpen] = useState(false);
@@ -145,6 +151,12 @@ export const AdminDashboard: React.FC = () => {
     photos: ['https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=600&q=80'],
     isExempt: true, // Default to true because admin adding user is specifically for exceptions
     interests: ['Afrobeats', 'Travel', 'Fashion', 'Tech', 'Foodie'],
+    isTenantClient: false,
+    tenantId: '',
+    clientPoolAccess: 'restricted' as 'restricted' | 'full_network',
+    sendSmsInvite: true,
+    vipTier: 'executive_vip' as 'standard' | 'premium' | 'vip' | 'executive_vip',
+    matchmakerNotes: '',
   });
 
   // Modal for Testimonials
@@ -340,7 +352,13 @@ export const AdminDashboard: React.FC = () => {
       phone: newUserForm.contactNumber.trim(),
       contactNumber: newUserForm.contactNumber.trim(),
       email: newUserForm.email.trim() || undefined,
-      isPremium: newUserForm.isExempt,
+      isPremium: newUserForm.isExempt || newUserForm.isTenantClient,
+      tenantId: newUserForm.isTenantClient ? (newUserForm.tenantId || (tenants[0]?.id ?? 'tenant-1')) : undefined,
+      isTenantClient: newUserForm.isTenantClient,
+      clientPoolAccess: newUserForm.clientPoolAccess,
+      sendSmsInvite: newUserForm.sendSmsInvite,
+      vipTier: newUserForm.vipTier,
+      matchmakerNotes: newUserForm.matchmakerNotes,
     });
     if (res.success) {
       setIsAddUserModalOpen(false);
@@ -361,8 +379,20 @@ export const AdminDashboard: React.FC = () => {
         photos: ['https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=600&q=80'],
         isExempt: true,
         interests: ['Afrobeats', 'Travel', 'Foodie'],
+        isTenantClient: false,
+        tenantId: '',
+        clientPoolAccess: 'restricted',
+        sendSmsInvite: true,
+        vipTier: 'executive_vip',
+        matchmakerNotes: '',
       });
-      showToast('Member Added', `User created successfully with VIP Exemption ${newUserForm.isExempt ? 'ENABLED' : 'DISABLED'}.`, 'match');
+      showToast(
+        'Member Added',
+        newUserForm.isTenantClient
+          ? `VIP Client enrolled under agency with invitation SMS dispatched!`
+          : `User created successfully with VIP Exemption ${newUserForm.isExempt ? 'ENABLED' : 'DISABLED'}.`,
+        'match'
+      );
     } else {
       showToast('Error', res.error || 'Failed to create user');
     }
@@ -562,6 +592,7 @@ export const AdminDashboard: React.FC = () => {
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
                   {
                     {
+                      tenants: `Matchmaking Agencies & VIP Tenants (${tenants.length})`,
                       users: `Members & VIP Exceptions (${adminUsersList.length})`,
                       managers: `Platform Managers & Staff Team (${platformManagers.length})`,
                       testimonials: `Love Stories & Testimonies (${testimonials.length})`,
@@ -579,6 +610,9 @@ export const AdminDashboard: React.FC = () => {
                 <span>Executive Management</span>
               </div>
             </div>
+
+            {/* 0. MATCHMAKING AGENCIES & TENANTS TAB */}
+            {activeTab === 'tenants' && <MatchmakingTenantsManager />}
 
             {/* 1. SUBSCRIPTIONS TAB */}
         {activeTab === 'subscriptions' && (
@@ -1360,6 +1394,73 @@ export const AdminDashboard: React.FC = () => {
                           This user will have unlimited swipes, unrestricted messaging, and the VIP badge with zero payments required. Perfect for ambassadors, VIP clients, and admin exceptions.
                         </p>
                       </div>
+                    </div>
+
+                    {/* Matchmaking Agency Tenant Association (New Multi-Tenant Capability) */}
+                    <div className="p-4 rounded-2xl bg-[#1a0c33] border border-pink-500/30 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <input
+                          id="new-user-is-tenant"
+                          type="checkbox"
+                          checked={newUserForm.isTenantClient}
+                          onChange={(e) => setNewUserForm((prev) => ({ ...prev, isTenantClient: e.target.checked }))}
+                          className="w-5 h-5 accent-pink-500 rounded cursor-pointer mt-0.5 shrink-0"
+                        />
+                        <div>
+                          <label htmlFor="new-user-is-tenant" className="text-xs font-bold text-white cursor-pointer flex items-center gap-1.5">
+                            <Building2 className="w-4 h-4 text-pink-400" />
+                            <span>Enroll as Matchmaking Agency Client (VIP Tenant Single)</span>
+                          </label>
+                          <p className="text-[11px] text-purple-200/80 mt-0.5">
+                            Bill the agreed upload fee to the matchmaking agency and automatically dispatch an invitation SMS with access instructions and a temporary password.
+                          </p>
+                        </div>
+                      </div>
+
+                      {newUserForm.isTenantClient && (
+                        <div className="space-y-3 pt-2 border-t border-white/10">
+                          <div>
+                            <label className="block text-xs font-semibold text-purple-200 mb-1">Select Agency Tenant</label>
+                            <select
+                              value={newUserForm.tenantId || (tenants[0]?.id ?? 'tenant-1')}
+                              onChange={(e) => setNewUserForm((prev) => ({ ...prev, tenantId: e.target.value }))}
+                              className="w-full px-3 py-2 rounded-xl bg-[#1e0e38] border border-amber-500/40 text-white text-xs focus:outline-none focus:border-pink-500"
+                            >
+                              {tenants.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name} (Upload Fee: {t.currency} {t.feePerClient})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-purple-200 mb-1">Candidate Pool Visibility</label>
+                            <select
+                              value={newUserForm.clientPoolAccess}
+                              onChange={(e) => setNewUserForm((prev) => ({ ...prev, clientPoolAccess: e.target.value as any }))}
+                              className="w-full px-3 py-2 rounded-xl bg-[#1e0e38] border border-white/10 text-white text-xs focus:outline-none focus:border-pink-500"
+                            >
+                              <option value="restricted">🔒 Restricted: Candidate only sees other candidates from this agency</option>
+                              <option value="full_network">🌐 Full Network: Candidate can browse the entire Fiffy singles deck</option>
+                            </select>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              id="send-sms-invite-toggle"
+                              type="checkbox"
+                              checked={newUserForm.sendSmsInvite}
+                              onChange={(e) => setNewUserForm((prev) => ({ ...prev, sendSmsInvite: e.target.checked }))}
+                              className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                            />
+                            <label htmlFor="send-sms-invite-toggle" className="text-[11px] text-emerald-300 font-semibold cursor-pointer flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-emerald-400" />
+                              <span>Dispatch SMS Invitation &amp; Temporary Password immediately upon creation</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex gap-2 pt-2 border-t border-white/10">
@@ -2213,13 +2314,14 @@ export const AdminDashboard: React.FC = () => {
                   <span>Navigation Menu</span>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30">
-                  8 Modules
+                  9 Modules
                 </span>
               </div>
 
               {/* Navigation Items: 2 columns on small screens, 1 vertical column on lg+ */}
               <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1.5" aria-label="Executive Navigation">
                 {[
+                  { id: 'tenants', label: 'Matchmaking Agencies (Tenants)', badge: tenants.length, icon: Building2 },
                   { id: 'users', label: 'Members & VIP Exceptions', badge: adminUsersList.length, icon: Users },
                   { id: 'managers', label: 'Platform Managers & Staff', badge: platformManagers.length, icon: UserCheck },
                   { id: 'testimonials', label: 'Love Stories & Testimonies', badge: testimonials.length, icon: Heart },

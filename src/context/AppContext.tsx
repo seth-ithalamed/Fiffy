@@ -17,6 +17,10 @@ import {
   ActiveSinglesStats,
   PlatformManager,
   PlatformManagerRole,
+  Tenant,
+  TenantClient,
+  TenantBillingRecord,
+  TenantMatchIntroduction,
 } from '../types';
 import {
   INITIAL_CURRENT_USER,
@@ -26,6 +30,10 @@ import {
   AFRICAN_COUNTRIES,
   INITIAL_TESTIMONIALS,
   INITIAL_PLATFORM_MANAGERS,
+  DEFAULT_TENANTS,
+  DEFAULT_TENANT_CLIENTS,
+  DEFAULT_TENANT_BILLING_RECORDS,
+  DEFAULT_TENANT_INTRODUCTIONS,
 } from '../data/mockData';
 import { hasContactInfo, maskContactInfo } from '../lib/privacy';
 import { apiEndpoint } from '../lib/api';
@@ -58,8 +66,17 @@ async function safeFetchJson<T = any>(res: Response): Promise<{ success: boolean
   }
 }
 
-export type SurfaceType = 'marketing' | 'web-app' | 'admin';
+export type SurfaceType = 'marketing' | 'web-app' | 'admin' | 'tenant-portal';
 export type InAppTab = 'discover' | 'matches' | 'chat' | 'likes' | 'profile';
+
+export interface TenantSession {
+  isAuthenticated: boolean;
+  tenantId: string;
+  tenantName: string;
+  contactName: string;
+  contactEmail: string;
+  token?: string;
+}
 
 interface AdminSession {
   isAuthenticated: boolean;
@@ -219,6 +236,41 @@ interface AppContextType {
   addPlatformManager: (data: Omit<PlatformManager, 'id' | 'createdAt'> & { password?: string }) => Promise<{ success: boolean; manager?: PlatformManager; error?: string }>;
   updatePlatformManager: (id: string, updates: Partial<PlatformManager>) => Promise<{ success: boolean; error?: string }>;
   deletePlatformManager: (id: string) => Promise<{ success: boolean; error?: string }>;
+
+  // First-Time Login Password Change Enforcement
+  isPasswordChangeModalOpen: boolean;
+  openPasswordChangeModal: (data?: { userId?: string; phone?: string; name?: string }) => void;
+  closePasswordChangeModal: () => void;
+  passwordChangeData: { userId?: string; phone?: string; name?: string } | null;
+  changeInitialPassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+
+  // Multi-Tenant Matchmaking Agency System
+  tenants: Tenant[];
+  tenantClients: TenantClient[];
+  tenantBillingRecords: TenantBillingRecord[];
+  tenantBillingSummary: { totalCollected: number; totalPending: number; totalInvoices: number };
+  tenantIntroductions: TenantMatchIntroduction[];
+  selectedTenantId: string;
+  setSelectedTenantId: (id: string) => void;
+  fetchTenants: () => Promise<void>;
+  createTenant: (tenantData: Partial<Tenant>) => Promise<{ success: boolean; tenant?: Tenant; error?: string }>;
+  updateTenant: (id: string, updates: Partial<Tenant>) => Promise<{ success: boolean; tenant?: Tenant; error?: string }>;
+  deleteTenant: (id: string) => Promise<{ success: boolean; error?: string }>;
+  fetchTenantClients: (tenantId?: string) => Promise<void>;
+  createTenantClient: (tenantId: string, clientData: any) => Promise<{ success: boolean; client?: TenantClient; tempPassword?: string; smsDispatched?: boolean; smsBody?: string; uploadFee?: number; currency?: string; isSavedFully?: boolean; error?: string }>;
+  updateTenantClient: (tenantId: string, clientId: string, updates: any) => Promise<{ success: boolean; error?: string }>;
+  payTenantClientUploadFee: (tenantId: string, clientId: string, paymentMethod?: string, paymentReference?: string) => Promise<{ success: boolean; client?: TenantClient; message?: string; error?: string }>;
+  payAllPendingUploadFees: (tenantId: string, paymentMethod?: string) => Promise<{ success: boolean; activatedCount?: number; totalAmount?: number; currency?: string; message?: string; error?: string }>;
+  resendTenantClientInvite: (tenantId: string, clientId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  fetchTenantIntroductions: (tenantId?: string) => Promise<void>;
+  createTenantIntroduction: (tenantId: string, clientAId: string, clientBId: string, matchmakerNote?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  fetchTenantBilling: () => Promise<void>;
+  updateTenantBillingStatus: (recordId: string, status: 'paid' | 'pending' | 'cancelled') => Promise<{ success: boolean; error?: string }>;
+  // Tenant Portal Authentication & Session
+  tenantSession: TenantSession | null;
+  loginTenant: (identifier: string, password?: string) => Promise<{ success: boolean; tenant?: Tenant; error?: string }>;
+  logoutTenant: () => void;
+  switchTenantWorkspace: (tenantId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -312,6 +364,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     autoSmsSent?: boolean;
     message?: string;
   } | null>(null);
+
+  // Forced Initial Password Change (First-time login)
+  const [isPasswordChangeModalOpen, setIsPasswordChangeModalOpen] = useState<boolean>(false);
+  const [passwordChangeData, setPasswordChangeData] = useState<{
+    userId?: string;
+    phone?: string;
+    name?: string;
+  } | null>(null);
+
+  // Multi-Tenant Matchmaking Agency System
+  const [tenants, setTenants] = useState<Tenant[]>(DEFAULT_TENANTS);
+  const [tenantClients, setTenantClients] = useState<TenantClient[]>(DEFAULT_TENANT_CLIENTS);
+  const [tenantBillingRecords, setTenantBillingRecords] = useState<TenantBillingRecord[]>(DEFAULT_TENANT_BILLING_RECORDS);
+  const [tenantBillingSummary, setTenantBillingSummary] = useState<{ totalCollected: number; totalPending: number; totalInvoices: number }>({
+    totalCollected: 0,
+    totalPending: 500,
+    totalInvoices: 2,
+  });
+  const [tenantIntroductions, setTenantIntroductions] = useState<TenantMatchIntroduction[]>(DEFAULT_TENANT_INTRODUCTIONS);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('tenant-afro-elegance');
+  const [tenantSession, setTenantSession] = useState<TenantSession | null>(() => {
+    try {
+      const saved = localStorage.getItem('fiffy_tenant_session');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    // Default to active first tenant for zero-friction review
+    return {
+      isAuthenticated: true,
+      tenantId: 'tenant-afro-elegance',
+      tenantName: 'AfroElegance Matchmaking Agency',
+      contactName: 'Sipho Zulu & Lerato Dlamini',
+      contactEmail: 'agency@afroelegance.co.za',
+      token: 'tenant-token-afro-elegance',
+    };
+  });
 
   // Subscriptions & PayFast
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(DEFAULT_SUBSCRIPTION_PLANS);
@@ -644,6 +731,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveSurfaceState('web-app');
         setInAppTab('discover');
         closeAuthModal();
+
+        // Enforce password change on first-time login for singles enrolled by matchmakers
+        if (parsed.data?.mustChangePassword || parsed.data?.user?.mustChangePassword || completeUser.mustChangePassword) {
+          setPasswordChangeData({
+            userId: completeUser.id,
+            phone: completeUser.phone || completeUser.contactNumber,
+            name: completeUser.name,
+          });
+          setIsPasswordChangeModalOpen(true);
+        }
+
         return { success: true, user: completeUser };
       }
 
@@ -1760,6 +1858,455 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { success: true };
   };
 
+  // =========================================================================
+  // FIRST-TIME LOGIN PASSWORD CHANGE ENFORCEMENT
+  // =========================================================================
+  const openPasswordChangeModal = (data?: { userId?: string; phone?: string; name?: string }) => {
+    if (data) setPasswordChangeData(data);
+    setIsPasswordChangeModalOpen(true);
+  };
+
+  const closePasswordChangeModal = () => {
+    // If the authenticated user strictly still must change password, we keep the gate locked
+    if (authUser?.mustChangePassword) {
+      showToast('Action Required', 'You must set a personal password before accessing the platform.', 'info');
+      return;
+    }
+    setIsPasswordChangeModalOpen(false);
+  };
+
+  const changeInitialPassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const targetUserId = passwordChangeData?.userId || authUser?.id || currentUser.id;
+      const targetPhone = passwordChangeData?.phone || authUser?.contactNumber || authUser?.phone || currentUser.contactNumber;
+
+      const res = await fetchApi('/api/auth/change-initial-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authUser?.token ? { Authorization: `Bearer ${authUser.token}` } : {}),
+        },
+        body: JSON.stringify({
+          userId: targetUserId,
+          phone: targetPhone,
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const parsed = await safeFetchJson(res);
+      if (!parsed.success) {
+        return { success: false, error: parsed.error || parsed.data?.error || 'Failed to update password.' };
+      }
+
+      // Update local authUser state
+      if (parsed.data?.user) {
+        const updated = {
+          ...parsed.data.user,
+          token: parsed.data.token || authUser?.token,
+          activeSessionToken: parsed.data.token || authUser?.token,
+          mustChangePassword: false,
+          firstLoginCompleted: true,
+        };
+        setAuthUser(updated);
+        setCurrentUser((prev) => ({ ...prev, ...updated, mustChangePassword: false, firstLoginCompleted: true }));
+        localStorage.setItem('fiffy_auth_user', JSON.stringify(updated));
+      } else if (authUser) {
+        const updated = { ...authUser, mustChangePassword: false, firstLoginCompleted: true };
+        setAuthUser(updated);
+        setCurrentUser((prev) => ({ ...prev, mustChangePassword: false, firstLoginCompleted: true }));
+        localStorage.setItem('fiffy_auth_user', JSON.stringify(updated));
+      }
+
+      setIsPasswordChangeModalOpen(false);
+      setPasswordChangeData(null);
+      showToast('Password Updated! 🎉', 'Your personal password has been saved. Welcome to Fiffy’s Match Making!', 'success');
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error updating password.' };
+    }
+  };
+
+  // =========================================================================
+  // MULTI-TENANT MATCHMAKING AGENCY MANAGEMENT
+  // =========================================================================
+  const fetchTenants = async () => {
+    try {
+      const res = await fetchApi('/api/tenants');
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && Array.isArray(parsed.data?.tenants)) {
+        setTenants(parsed.data.tenants);
+      }
+    } catch {
+      // offline fallback to default state
+    }
+  };
+
+  const createTenant = async (tenantData: Partial<Tenant>) => {
+    try {
+      const res = await fetchApi('/api/tenants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tenantData),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.tenant) {
+        setTenants((prev) => [...prev, parsed.data.tenant]);
+        showToast('Agency Registered! 🏢', `${parsed.data.tenant.name} is now onboarded on your platform network.`, 'success');
+        return { success: true, tenant: parsed.data.tenant };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to create tenant agency.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error registering agency.' };
+    }
+  };
+
+  const updateTenant = async (id: string, updates: Partial<Tenant>) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.tenant) {
+        setTenants((prev) => prev.map((t) => (t.id === id ? { ...t, ...parsed.data.tenant } : t)));
+        showToast('Agency Updated', 'Tenant configuration and upload fee saved.', 'success');
+        return { success: true, tenant: parsed.data.tenant };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to update tenant.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error updating tenant.' };
+    }
+  };
+
+  const deleteTenant = async (id: string) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${id}`, { method: 'DELETE' });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success) {
+        setTenants((prev) => prev.filter((t) => t.id !== id));
+        showToast('Agency Removed', 'Tenant agency deleted from the network.', 'info');
+        return { success: true };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to delete tenant agency.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error deleting tenant agency.' };
+    }
+  };
+
+  const fetchTenantClients = async (tenantId: string = 'all') => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/clients`);
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && Array.isArray(parsed.data?.clients)) {
+        setTenantClients(parsed.data.clients);
+      }
+    } catch {
+      // offline fallback
+    }
+  };
+
+  const createTenantClient = async (tenantId: string, clientData: any) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clientData),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.client) {
+        setTenantClients((prev) => [parsed.data.client, ...prev]);
+        await fetchTenants();
+        await fetchTenantBilling();
+        await fetchAdminUsers();
+
+        const smsStatus = parsed.data.smsDispatched ? 'SMS invitation dispatched!' : 'Client registered.';
+        showToast('VIP Single Enrolled! ✨', `${parsed.data.client.name} enrolled. ${smsStatus}`, 'success');
+        return {
+          success: true,
+          client: parsed.data.client,
+          tempPassword: parsed.data.tempPassword,
+          smsDispatched: parsed.data.smsDispatched,
+          smsBody: parsed.data.smsBody,
+        };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to enroll client.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error enrolling client.' };
+    }
+  };
+
+  const updateTenantClient = async (tenantId: string, clientId: string, updates: any) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/clients/${clientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.client) {
+        setTenantClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, ...parsed.data.client } : c)));
+        showToast('Client Updated', 'Pool access & matchmaker settings synchronized.', 'success');
+        return { success: true };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to update client.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error updating client.' };
+    }
+  };
+
+  const payTenantClientUploadFee = async (tenantId: string, clientId: string, paymentMethod?: string, paymentReference?: string) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/clients/${clientId}/pay-upload-fee`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod, paymentReference }),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.client) {
+        setTenantClients((prev) =>
+          prev.map((c) => (c.id === clientId || c.userId === clientId ? { ...c, ...parsed.data.client } : c))
+        );
+        await fetchTenants();
+        await fetchTenantBilling();
+        await fetchAdminUsers();
+
+        showToast(
+          'Upload Fee Paid & Data Saved! 💎',
+          parsed.data.message || `Fee of ${parsed.data.currency} ${parsed.data.uploadFee} settled. Client profile is fully saved!`,
+          'success'
+        );
+        return { success: true, client: parsed.data.client, message: parsed.data.message };
+      }
+      const errMsg = parsed.data?.error || 'Failed to settle upload fee.';
+      showToast('Payment Unsuccessful', errMsg, 'error');
+      return { success: false, error: errMsg };
+    } catch (err: any) {
+      const errMsg = err?.message || 'Network error processing fee settlement.';
+      showToast('Payment Error', errMsg, 'error');
+      return { success: false, error: errMsg };
+    }
+  };
+
+  const payAllPendingUploadFees = async (tenantId: string, paymentMethod?: string) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/pay-all-pending-upload-fees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod }),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success) {
+        await fetchTenantClients(tenantId);
+        await fetchTenants();
+        await fetchTenantBilling();
+        await fetchAdminUsers();
+
+        showToast(
+          'All Upload Fees Settled! 🎉',
+          parsed.data.message || 'All staged client data is now fully saved to the live database.',
+          'success'
+        );
+        return {
+          success: true,
+          activatedCount: parsed.data.activatedCount,
+          totalAmount: parsed.data.totalAmount,
+          currency: parsed.data.currency,
+          message: parsed.data.message,
+        };
+      }
+      const errMsg = parsed.data?.error || 'Failed to settle pending upload fees.';
+      showToast('Batch Settlement Error', errMsg, 'error');
+      return { success: false, error: errMsg };
+    } catch (err: any) {
+      const errMsg = err?.message || 'Network error processing batch fee payment.';
+      showToast('Payment Error', errMsg, 'error');
+      return { success: false, error: errMsg };
+    }
+  };
+
+  const resendTenantClientInvite = async (tenantId: string, clientId: string) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/clients/${clientId}/resend-invite`, {
+        method: 'POST',
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success) {
+        setTenantClients((prev) =>
+          prev.map((c) => (c.id === clientId ? { ...c, smsInviteSent: true, smsInviteSentAt: new Date().toISOString() } : c))
+        );
+        showToast('SMS Invitation Sent! 📱', parsed.data?.message || 'Invitation SMS dispatched with app access instructions.', 'success');
+        return { success: true, message: parsed.data?.message };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to resend SMS invite.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error resending SMS invite.' };
+    }
+  };
+
+  const fetchTenantIntroductions = async (tenantId: string = 'all') => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/introductions`);
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && Array.isArray(parsed.data?.introductions)) {
+        setTenantIntroductions(parsed.data.introductions);
+      }
+    } catch {
+      // offline fallback
+    }
+  };
+
+  const createTenantIntroduction = async (tenantId: string, clientAId: string, clientBId: string, matchmakerNote?: string) => {
+    try {
+      const res = await fetchApi(`/api/tenants/${tenantId}/introductions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientAId, clientBId, matchmakerNote }),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.introduction) {
+        setTenantIntroductions((prev) => [parsed.data.introduction, ...prev]);
+        showToast('Curated Introduction Created! 🥂', parsed.data.message || 'VIP clients introduced successfully.', 'success');
+        return { success: true, message: parsed.data.message };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to create introduction.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error creating introduction.' };
+    }
+  };
+
+  const fetchTenantBilling = async () => {
+    try {
+      const res = await fetchApi('/api/admin/tenant-billing');
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && Array.isArray(parsed.data?.records)) {
+        setTenantBillingRecords(parsed.data.records);
+        if (parsed.data.summary) {
+          setTenantBillingSummary(parsed.data.summary);
+        }
+      }
+    } catch {
+      // offline fallback
+    }
+  };
+
+  const updateTenantBillingStatus = async (recordId: string, status: 'paid' | 'pending' | 'cancelled') => {
+    try {
+      const res = await fetchApi(`/api/admin/tenant-billing/${recordId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success) {
+        setTenantBillingRecords((prev) =>
+          prev.map((r) => (r.id === recordId ? { ...r, status, paidAt: status === 'paid' ? new Date().toISOString() : r.paidAt } : r))
+        );
+        await fetchTenants();
+        await fetchTenantBilling();
+        showToast('Invoice Updated 💰', `Billing status updated to ${status.toUpperCase()}.`, 'success');
+        return { success: true };
+      }
+      return { success: false, error: parsed.data?.error || 'Failed to update billing record.' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Network error updating billing status.' };
+    }
+  };
+
+  const loginTenant = async (identifier: string, password?: string) => {
+    try {
+      const res = await fetchApi('/api/tenants/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password }),
+      });
+      const parsed = await safeFetchJson(res);
+      if (parsed.success && parsed.data?.tenant) {
+        const tenant = parsed.data.tenant as Tenant;
+        const session: TenantSession = {
+          isAuthenticated: true,
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          contactName: tenant.contactName,
+          contactEmail: tenant.contactEmail,
+          token: parsed.data.token || `tenant-token-${tenant.id}`,
+        };
+        setTenantSession(session);
+        setSelectedTenantId(tenant.id);
+        try {
+          localStorage.setItem('fiffy_tenant_session', JSON.stringify(session));
+        } catch {}
+        showToast('Agency Authorized 🏢', `Welcome to the Matchmaker Portal, ${tenant.name}.`, 'match');
+        return { success: true, tenant };
+      }
+      return { success: false, error: parsed.data?.error || 'Invalid agency credentials.' };
+    } catch (err: any) {
+      const clean = identifier.trim().toLowerCase();
+      const localTenant = tenants.find(
+        (t) =>
+          t.id.toLowerCase() === clean ||
+          t.slug.toLowerCase() === clean ||
+          t.contactEmail.toLowerCase() === clean ||
+          t.contactPhone.replace(/\s+/g, '') === clean.replace(/\s+/g, '') ||
+          t.name.toLowerCase().includes(clean)
+      );
+      if (localTenant) {
+        const session: TenantSession = {
+          isAuthenticated: true,
+          tenantId: localTenant.id,
+          tenantName: localTenant.name,
+          contactName: localTenant.contactName,
+          contactEmail: localTenant.contactEmail,
+          token: `tenant-token-${localTenant.id}`,
+        };
+        setTenantSession(session);
+        setSelectedTenantId(localTenant.id);
+        try {
+          localStorage.setItem('fiffy_tenant_session', JSON.stringify(session));
+        } catch {}
+        showToast('Agency Authorized 🏢', `Welcome to ${localTenant.name} Partner Portal.`, 'match');
+        return { success: true, tenant: localTenant };
+      }
+      return { success: false, error: err?.message || 'Failed to authenticate agency.' };
+    }
+  };
+
+  const logoutTenant = () => {
+    setTenantSession(null);
+    try {
+      localStorage.removeItem('fiffy_tenant_session');
+    } catch {}
+    showToast('Signed Out', 'You have logged out of the agency portal.', 'info');
+  };
+
+  const switchTenantWorkspace = (tenantId: string) => {
+    const target = tenants.find((t) => t.id === tenantId);
+    if (!target) return;
+    const session: TenantSession = {
+      isAuthenticated: true,
+      tenantId: target.id,
+      tenantName: target.name,
+      contactName: target.contactName,
+      contactEmail: target.contactEmail,
+      token: `tenant-token-${target.id}`,
+    };
+    setTenantSession(session);
+    setSelectedTenantId(target.id);
+    try {
+      localStorage.setItem('fiffy_tenant_session', JSON.stringify(session));
+    } catch {}
+    showToast('Agency Switched', `Active workspace: ${target.name}`, 'info');
+  };
+
+  // Initial load for tenant records
+  useEffect(() => {
+    fetchTenants();
+    fetchTenantClients('all');
+    fetchTenantBilling();
+    fetchTenantIntroductions('all');
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -1867,6 +2414,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addPlatformManager,
         updatePlatformManager,
         deletePlatformManager,
+        // Password change flow
+        isPasswordChangeModalOpen,
+        openPasswordChangeModal,
+        closePasswordChangeModal,
+        passwordChangeData,
+        changeInitialPassword,
+        // Tenant agency platform
+        tenants,
+        tenantClients,
+        tenantBillingRecords,
+        tenantBillingSummary,
+        tenantIntroductions,
+        selectedTenantId,
+        setSelectedTenantId,
+        fetchTenants,
+        createTenant,
+        updateTenant,
+        deleteTenant,
+        fetchTenantClients,
+        createTenantClient,
+        updateTenantClient,
+        payTenantClientUploadFee,
+        payAllPendingUploadFees,
+        resendTenantClientInvite,
+        fetchTenantIntroductions,
+        createTenantIntroduction,
+        fetchTenantBilling,
+        updateTenantBillingStatus,
+        tenantSession,
+        loginTenant,
+        logoutTenant,
+        switchTenantWorkspace,
       }}
     >
       {children}
